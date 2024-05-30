@@ -116,8 +116,8 @@ def clipimage(maskPath, inputBand, outImgPath):
         shapes = [feature["geometry"] for feature in gpkg]
 
     with rasterio.open(inputBand) as src:
-        out_image, out_transform = rasterio.mask.mask(src, shapes, crop = True)
-        out_meta = src.meta
+        out_image, out_transform = rasterio.mask.mask(src, shapes, crop=True, filled=True)
+        out_meta = src.meta.copy()
     
     out_meta.update({"driver": "GTiff", # output format GeoTiff
                     "height": out_image.shape[1],
@@ -230,8 +230,8 @@ def dr(sunDist):
 
     sunDist = distance Earth-Sun in AU extracted from image metadata (EARTH_SUN_DISTANCE)
     """
-    dr = (1/sunDist) ** 2 
-    return dr
+     
+    return 1 / (sunDist** 2) 
 
 ############################################################################################################################################
 
@@ -242,12 +242,11 @@ def zenithAngle(sunElev):
 
     sunElev = Sun Elevation angle extracted from image metadata (SUN_ELEVATION)
     """
-    zenith_angle = ((90 - sunElev) * math.pi) / 180
-    return zenith_angle
+    return ((90 - sunElev))# * math.pi) / 180
 
 ############################################################################################################################################
 
-def lb_band(AddRad, MultRad, band_path, outputPath):
+def lb_band(offset, gain, band_path, outputPath):
    
     """
     # Pixel Radiance
@@ -257,14 +256,14 @@ def lb_band(AddRad, MultRad, band_path, outputPath):
     band = Landsat band
     """
     band = np.array(tf.imread(band_path))
-    lb = (MultRad * band) + AddRad
+    Lb = offset + gain * band
     
-    #savetif(lb, outputPath, band_path)
-    return lb
+    savetif(Lb, outputPath, band_path)
+    return Lb
 
 ############################################################################################################################################
 
-def rb_band(AddRef, MultRef, band_path, dr, zenithAngle, outputPath):
+def reflectivity_band(lb, esun_band, dr, band_path, zenithAngle, outputPath):
    
     """
     # Band Reflectance [W/m2]
@@ -280,14 +279,15 @@ def rb_band(AddRef, MultRef, band_path, dr, zenithAngle, outputPath):
     #refl = (MultRef * band) + AddRef
     #rb = refl / (math.cos(zenithAngle) * (dr))
 
-    rb = ((MultRef * band) + AddRef) / (math.cos(zenithAngle) * (dr))
-
+    #rb = (band / (math.cos(zenithAngle) * (dr)))
+    rb = (math.pi * lb) / (esun_band * (math.cos(zenithAngle) * (dr)))
+    
     #savetif(rb, outputPath, band_path)
     return rb
 
 ######################################################################
 
-def kb(rb, lb, dr, zenithAngle, outputPath):
+def kb(rb, lb, dr, zenithAngle, outputPath, band_path):
     """
     # Solar Constant [W/m2]
 
@@ -303,12 +303,16 @@ def kb(rb, lb, dr, zenithAngle, outputPath):
     kb = (math.pi * lb) / (rb * math.cos(zenithAngle) * dr)
     kb[kb < 0] = 0
 
-    #savetif(kb, outputPath, band_path) 
+    savetif(kb, outputPath, band_path) 
     return kb
 
 ######################################################################
 
-def toaplanetary(pb2,rb2, pb3, rb3, pb4, rb4,  pb5, rb5, pb6,rb6, pb7, rb7, outputPath, band_path):
+def pb(esun_band, esun_sum):
+    return esun_band / esun_sum
+
+
+def albedo_toa_band(pbx,rbx):
     
     """
     # pPanetary albedo (without atmospheric correction)
@@ -320,31 +324,13 @@ def toaplanetary(pb2,rb2, pb3, rb3, pb4, rb4,  pb5, rb5, pb6,rb6, pb7, rb7, outp
     rbx = and reflectance
     """
 
-    toaPlanet = (pb2 * rb2) + (pb3 * rb3) + (pb4 * rb4) + (pb5 * rb5) + (pb6 * rb6) + (pb7 * rb7)
-    savetif(toaPlanet, outputPath, band_path)
-    
+    toaPlanet = (pbx * rbx)   
     return toaPlanet
 
-######################################################################
-def toc(P, zenithAngle, tpw, Kt = 1.0): #Kt from 1.0 for clear air, 0.5 for extremely polluted air
-    """
-    # Atmospheric transmittance in the solar radiation domain
-    # Unitless
-
-    P = Atmospheric Pressure[kPa]
-    tpw = Total Precipitable Water [kg/m2]
-    Kt = Air Turbidity coefficient (Kt= 1.0 for clear air and Kt= 0.5 for extremely turbid or polluted air)
-    """
-    exp =(-(0.00146 * P)/(Kt * zenithAngle)) - 0.075 * ((tpw/zenithAngle) * 0.4)
-   
-   
-    Toc = 0.35 + (0.627 ** exp)
-    
-    return Toc
 
 ######################################################################
 
-def albedo(toaplanet, Toc, outputPath, band_path):
+def albedo(toaplanet, atm_trans, outputPath, band_path):
     """
     # Albedo 
     # Unitless or %
@@ -353,11 +339,11 @@ def albedo(toaplanet, Toc, outputPath, band_path):
     toaplanet = Planetary Top Of Atmosphere Radiance  
     Toc = Atmospheric transmittance in the solar radiation domain
     """
-    albedo = (toaplanet - 0.03) / (Toc ** 2)
+    albedo = (toaplanet - 0.03) / (atm_trans ** 2)
 
-    albedo[albedo < 0] = 0.1
+    #albedo[albedo < 0] = 0.1
     
-    albedo[albedo > 1] = 0.99
+    #albedo[albedo > 1] = 0.99
 
     savetif(albedo, outputPath, band_path)
     return albedo
@@ -442,17 +428,17 @@ def densityair(P, Ta, RH, R = 278.05):
 
 ######################################################################
 
-def	atmemis(es, Ta):
+def	atmemis(Ta_K):
 	#(Brutsaert 1982).
     """
     # Emmisivity of the Atmosphere
-    # via Brutsart, 1982 (https://link.springer.com/book/10.1007/978-94-017-1497-6)
+    # via https://www.nature.com/articles/s41598-023-40499-6
 
-    Ta = Air Temperature [˚C]
-    es = Saturated vapour pressure [kPa]
+    Ta = Air Temperature [K]
+    
     """
     
-    atmEmis = 1.24 * (es * 10.0/(Ta + 273.15)) ** (1.0/7.0)
+    atmEmis = 0.0000092 * ((Ta_K) **  2)
     return atmEmis
 
 ######################################################################
@@ -533,7 +519,7 @@ def soilGFlux(LST, albedo, ndvi, Rn, outputPath, band_path):
     #LST_K = LST - 273.15
     #G = (Rn * (-13.46 + 0.507 * (4 * np.exp(0.123*LST_K)))) + 0.0086
 
-    savetif(G, outputPath, band_path)
+    #savetif(G, outputPath, band_path)
     return G
 
 ######################################################################
@@ -653,11 +639,10 @@ def longout(emisSurf, LST, reference_band_path, outputPath):
     emisSurf = emissivity of surface [-]
     LST = Land Surface Temprature [˚C]
     """
-    LST = LST + 273.15
+    #LST = LST + 273.15
     longOut = emisSurf * 5.6703 * 10.0 ** (-8.0) * LST ** 4
 
-    savetif(longOut, outputPath, reference_band_path)
-    #savetif(longOut, outputPath, reference_band_path
+    #savetif(longOut, outputPath, reference_band_path)
     return longOut
 
 ######################################################################
@@ -670,9 +655,9 @@ def longin(emisAtm, LST, reference_band_path, outputPath):
     emis = emissivity of atm [-]
     LST = Land Surface Temprature [˚C]
     """
-    LST = LST + 273.15
+    #LST = LST + 273.15
     longIn = emisAtm * 5.6703 * 10.0 ** (-8.0) * LST ** 4
-    savetif(longIn, outputPath, reference_band_path)
+    #savetif(longIn, outputPath, reference_band_path)
     return longIn
 
 ######################################################################
@@ -699,10 +684,21 @@ def getDOY(date): #get day of the year
 def ecc_corr(doy):
     return 1 + 0.033 * math.cos(((2 * math.pi * doy) / 365)) 
 
-def rad_short_in(t, S, E0, theta):
+def shortin(solar_cons, solar_zenith_angle, inverte_SE, atm_trans):
+    # https://posmet.ufv.br/wp-content/uploads/2017/04/MET-479-Waters-et-al-SEBAL.pdf
     
-    return t * S * E0 * math.cos(math.radians(theta))
+    return solar_cons * math.cos(solar_zenith_angle) * inverte_SE * atm_trans
+    #return solar_cons * solar_zenith_angle * inverte_SE * atm_trans
+    
 
+def atm_transmiss(theta1):
+
+    ## accroding to Jimenez-Munoz, J. C., Sobrino, J. A., Skokovic, D., Mattar, C., & Cristobal, J. (2014). L
+    #and Surface Temperature Retrieval Methods From Landsat-8 Thermal Infrared Sensor Data. 
+    #IEEE Geoscience and Remote Sensing Letters, 11(10), 1840–1843. doi:10.1109/lgrs.2014.2312032 
+    
+    
+    return  1 / theta1
 
 ######################################################################
 def shortout(albedo, shortin, reference_band_path, outputPath):
@@ -714,12 +710,12 @@ def shortout(albedo, shortin, reference_band_path, outputPath):
     shortin = Shortwave Incoming Radiation [W/m2]
     """
     shortOut =  albedo * shortin
-    savetif(shortOut, outputPath, reference_band_path)  
+    #savetif(shortOut, outputPath, reference_band_path)  
     return shortOut
 
 ######################################################################
 
-def Rn(shortIn, shortOut, longIn, longOut, reference_band_path, outputPath):
+def netradiation(shortIn, shortOut, longIn, longOut, reference_band_path, outputPath):
     """
     # Net Energy Bdget [W/m2]
     # via https://www.redalyc.org/journal/2736/273652409002/html/#redalyc_273652409002_ref4
@@ -754,7 +750,7 @@ def emis(ndvi, Pv, output_path, reference_band_path): #surface emis
                            np.where(ndvi <= 0.2, 0.996,  # Bare soil
                                     (0.973 * Pv + (1 - Pv) *  0.973 + 0.005))))  # Sparse vegetation
 
-    savetif(E, output_path, reference_band_path)
+    #savetif(E, output_path, reference_band_path)
     return E
 
 ######################################################################
