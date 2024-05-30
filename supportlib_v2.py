@@ -772,7 +772,7 @@ def LST(BT, emis, band_path, outputPath):
     
     LST = (BT / (1 + ((0.0015 * BT)/1.4488) * np.log(emis)))
     
-    savetif(LST, outputPath, band_path)
+    #savetif(LST, outputPath, band_path)
     return LST
 
 ######################################################################

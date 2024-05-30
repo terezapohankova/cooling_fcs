@@ -15,21 +15,11 @@ JSON_MTL_PATH = supportlib_v2.getfilepath(INPUT_FOLDER, 'MTL.json') #['root/snim
 
 
 OUTPUT_FOLDER = r'/home/tereza/Documents/data/LANDSAT/RESULTS'
-OUT_LST_FOLDER = os.path.join(OUTPUT_FOLDER,'lst')
-os.makedirs(OUT_LST_FOLDER, exist_ok = True)
 
-OUT_VEG_INDEX_FOLDER = os.path.join(OUTPUT_FOLDER,'vegIndices')
-os.makedirs(OUT_VEG_INDEX_FOLDER, exist_ok = True)
+FOLDERS = ['lst', 'vegIndices', 'radiation', 'preprocess', 'albedo']
+for folder in FOLDERS:
+    os.makedirs(os.path.join(OUTPUT_FOLDER, folder), exist_ok=True)
 
-OUT_RADIATION_FOLDER = os.path.join(OUTPUT_FOLDER,'radiation')
-os.makedirs(OUT_RADIATION_FOLDER, exist_ok = True)
-
-OUT_PREPROCESS_FOLDER = os.path.join(OUTPUT_FOLDER,'preprocess')
-os.makedirs(OUT_PREPROCESS_FOLDER, exist_ok = True)
-
-
-OUT_ALBEDO_FOLDER = os.path.join(OUTPUT_FOLDER, 'albedo')
-os.makedirs(OUT_ALBEDO_FOLDER, exist_ok = True)
 
 mtlJSONFile = {}
 sensing_date_list = []
@@ -85,7 +75,8 @@ esun = {'B2' : 2067,
         'B6' : 245,
         'B7' : 79.72}
 
-esun_sum = sum(value for value in esun.values())
+esun_sum = sum(esun.values())
+
 
 
 meteorologyDict = supportlib_v2.createmeteodict(METEOROLOGY) #{{'20220518': {'avg_temp': '14.25','max_temp': '19.8','min_temp': '8.7','relHum': '65.52','wind_sp': '1.25'}},
@@ -106,7 +97,7 @@ for img in ORIGINAL_IMG:
             sensing_date_list.append(sensing_date)
 
 
-for jsonFile in JSON_MTL_PATH:
+"""for jsonFile in JSON_MTL_PATH:
     for jsonFile in JSON_MTL_PATH:
         if 'L2SP' in jsonFile:
             loadJSON = supportlib_v2.load_json(jsonFile)
@@ -114,6 +105,14 @@ for jsonFile in JSON_MTL_PATH:
             #pprint(sensDate)
             if sensDate not in sensing_date_list:
                 sensing_date_list.append(sensDate)
+        mtlJSONFile[sensDate] = loadJSON"""
+
+for jsonFile in JSON_MTL_PATH:
+    if 'L2SP' in jsonFile:
+        loadJSON = supportlib_v2.load_json(jsonFile)
+        sensDate = jsonFile.split('_')[4]
+        if sensDate not in sensing_date_list:
+            sensing_date_list.append(sensDate)
         mtlJSONFile[sensDate] = loadJSON
 
 
@@ -150,9 +149,7 @@ for inputBand in ORIGINAL_IMG:
         #pprint(image_level)
         
         clippedImgPath = os.path.join(INPUT_FOLDER, date, image_basename) 
-        # '/home/tereza/Documents/testy_VSC/clipped_bands/20220612/clipped_LC09_L2SP_189026_20220612_20220614_02_T1_SR_B1.TIF'
-        #pprint(clippedImgPath)
-        # band_level_key must be unique
+     
         band_level_key = f'{band}_{image_level}' # 'B4_L2'
         #pprint(band_level_key)
         
@@ -189,229 +186,152 @@ for date in sensing_date_list:
     inverseSE = supportlib_v2.dr(imgDict[date]['B2_L2']['dES'])
     
 
-    ### atmospheric coefficient for atmospheric correction of thermal band
-     
-
-
-    theta1_terms = {
-        "a": theta1_dict["a"],
-        "b": theta1_dict["b"] * (ta_kelvin ** 2) * (water_vap_cm ** 2),
-        "c": theta1_dict["c"] * ta_kelvin * (water_vap_cm ** 2),
-        "d": theta1_dict["d"] * ta_kelvin * water_vap_cm,
-        "e": theta1_dict["e"] * (ta_kelvin ** 2) * water_vap_cm,
-        "f": theta1_dict["f"] * ta_kelvin,
-        "g": theta1_dict["g"] * water_vap_cm,
-        "h": theta1_dict["h"] * (ta_kelvin ** 2),
-        "i": theta1_dict["i"] * (water_vap_cm ** 2)
+       # Atmospheric coefficient for atmospheric correction of thermal band
+    theta_terms = {
+        "theta1": {
+            "a": theta1_dict["a"],
+            "b": theta1_dict["b"] * (ta_kelvin ** 2) * (water_vap_cm ** 2),
+            "c": theta1_dict["c"] * ta_kelvin * (water_vap_cm ** 2),
+            "d": theta1_dict["d"] * ta_kelvin * water_vap_cm,
+            "e": theta1_dict["e"] * (ta_kelvin ** 2) * water_vap_cm,
+            "f": theta1_dict["f"] * ta_kelvin,
+            "g": theta1_dict["g"] * water_vap_cm,
+            "h": theta1_dict["h"] * (ta_kelvin ** 2),
+            "i": theta1_dict["i"] * (water_vap_cm ** 2)
+        },
+        "theta2": {
+            "a": theta2_dict["a"],
+            "b": theta2_dict["b"] * (ta_kelvin ** 2) * (water_vap_cm ** 2),
+            "c": theta2_dict["c"] * ta_kelvin * (water_vap_cm ** 2),
+            "d": theta2_dict["d"] * ta_kelvin * water_vap_cm,
+            "e": theta2_dict["e"] * (ta_kelvin ** 2) * water_vap_cm,
+            "f": theta2_dict["f"] * ta_kelvin,
+            "g": theta2_dict["g"] * water_vap_cm,
+            "h": theta2_dict["h"] * (ta_kelvin ** 2),
+            "i": theta2_dict["i"] * (water_vap_cm ** 2),
+        },
+        "theta3": {
+            "a": theta3_dict["a"],
+            "b": theta3_dict["b"] * (ta_kelvin ** 2) * (water_vap_cm ** 2),
+            "c": theta3_dict["c"] * ta_kelvin * (water_vap_cm ** 2),
+            "d": theta3_dict["d"] * ta_kelvin * water_vap_cm,
+            "e": theta3_dict["e"] * (ta_kelvin ** 2) * water_vap_cm,
+            "f": theta3_dict["f"] * ta_kelvin,
+            "g": theta3_dict["g"] * water_vap_cm,
+            "h": theta3_dict["h"] * (ta_kelvin ** 2),
+            "i": theta3_dict["i"] * (water_vap_cm ** 2),
+        }
     }
 
-    theta2_terms = {
-        "a": theta2_dict["a"],
-        "b": theta2_dict["b"] * (ta_kelvin ** 2) * (water_vap_cm ** 2),
-        "c": theta2_dict["c"] * ta_kelvin * (water_vap_cm ** 2),
-        "d": theta2_dict["d"] * ta_kelvin * water_vap_cm,
-        "e": theta2_dict["e"] * (ta_kelvin ** 2) * water_vap_cm,
-        "f": theta2_dict["f"] * ta_kelvin,
-        "g": theta2_dict["g"] * water_vap_cm,
-        "h": theta2_dict["h"] * (ta_kelvin ** 2),
-        "i": theta2_dict["i"] * (water_vap_cm ** 2),
-    }
-
-    theta3_terms = {
-        "a": theta3_dict["a"],
-        "b": theta3_dict["b"] * (ta_kelvin ** 2) * (water_vap_cm ** 2),
-        "c": theta3_dict["c"] * ta_kelvin * (water_vap_cm ** 2),
-        "d": theta3_dict["d"] * ta_kelvin * water_vap_cm,
-        "e": theta3_dict["e"] * (ta_kelvin ** 2) * water_vap_cm,
-        "f": theta3_dict["f"] * ta_kelvin,
-        "g": theta3_dict["g"] * water_vap_cm,
-        "h": theta3_dict["h"] * (ta_kelvin ** 2),
-        "i": theta3_dict["i"] * (water_vap_cm ** 2),
-    }
-
-    #pprint(f"Calculating Auxuliary Atm. Functions for {date}")
-    theta1_vals = sum(value for value in theta1_terms.values())
-    theta2_vals = sum(value for value in theta2_terms.values())
-    theta3_vals = sum(value for value in theta3_terms.values())
+    theta_vals = {key: sum(value.values()) for key, value in theta_terms.items()}
+    
+    
     
     #pprint(f"Calculating Atmosphere Emissiivty for {date}")
     emissivity_atmos = supportlib_v2.atmemis(ta_kelvin)
-    transmis_atm = supportlib_v2.atm_transmiss(theta1_vals)
+    transmis_atm = supportlib_v2.atm_transmiss(theta_vals['theta1'])
     
 
     ########## SATELLITE PARAMETERS ######################
     pprint(f"Calculating Brightness Temperature for {date}")
+    tbright_path = os.path.join(OUTPUT_FOLDER, FOLDERS[1], os.path.basename(imgDict[date]['B5_L2']['clipped_path']).replace('B5.TIF', 'tbright.TIF'))
     tbright = supportlib_v2.bt(imgDict[date]['B10_L1']['KELVIN_CONS_1'],
                             imgDict[date]['B10_L1']['KELVIN_CONS_2'],
                             imgDict[date]['B10_L1']['RADIANCE_ADD'],
                             imgDict[date]['B10_L1']['RADIANCE_MULT'],
-                            os.path.join(OUT_PREPROCESS_FOLDER, 'lst', 
-                            os.path.basename(imgDict[date]['B10_L1']['clipped_path']).replace('B10.TIF', 'BT' + '.TIF')),
+                            tbright_path,
                             imgDict[date]['B10_L1']['clipped_path'],
                             imgDict[date]['B5_L2']['clipped_path'])
     
     
     
     pprint(f"Calculating Sensor Radiance for {date}")
+    sens_radiance_path = os.path.join(OUTPUT_FOLDER, FOLDERS[1], os.path.basename(imgDict[date]['B5_L2']['clipped_path']).replace('B5.TIF', 'sens_redaince'))
     sens_radiance = supportlib_v2.sensor_radiance(tbright, 
                                                   imgDict[date]['B10_L1']['KELVIN_CONS_1'], 
                                                   imgDict[date]['B10_L1']['KELVIN_CONS_2'],
-                                                  os.path.join(OUT_PREPROCESS_FOLDER, 'lst', 
-                                                        os.path.basename(imgDict[date]['B10_L1']['clipped_path']).replace('B10.TIF', 'L_sens_B10' + '.TIF')),
+                                                  sens_radiance_path,
                                                   imgDict[date]['B5_L2']['clipped_path'])
-    
     
 
     gamma_cal = supportlib_v2.gamma(tbright, B_GAMMA, sens_radiance)
     delta_cal = supportlib_v2.delta(tbright, B_GAMMA, gamma_cal, sens_radiance)
 
     pprint(f"Calculating NDVI for {date}")
+
+    
+    ndvi_path = os.path.join(OUTPUT_FOLDER, FOLDERS[1], os.path.basename(imgDict[date]['B5_L2']['clipped_path']).replace('B5.TIF', 'ndvi.TIF'))
     ndvi = supportlib_v2.ndvi(imgDict[date]['B5_L2']['clipped_path'],
                               imgDict[date]['B4_L2']['clipped_path'],
-                              os.path.join(OUT_VEG_INDEX_FOLDER, 
-                                    os.path.basename(imgDict[date]['B5_L2']['clipped_path']).replace('B5.TIF', 'ndvi' + '.TIF')))
+                              ndvi_path
+                              )
    
-    
     pprint(f"Calculating Fraction og Vegetation Cover for {date}")
-    pv = supportlib_v2.pv(ndvi,
-                          os.path.join(OUT_VEG_INDEX_FOLDER, 
-                                    os.path.basename(imgDict[date]['B5_L2']['clipped_path']).replace('B5.TIF', 'pv' + '.TIF')),
-                                    imgDict[date]['B4_L2']['clipped_path'])
+    pv_path = os.path.join(OUTPUT_FOLDER,FOLDERS[1], os.path.basename(imgDict[date]['B5_L2']['clipped_path']).replace('B5.TIF', 'pv.TIF'))
+    pv = supportlib_v2.pv(ndvi, pv_path, imgDict[date]['B4_L2']['clipped_path'])
 
     pprint(f"Calculating Surface Emissivity for {date}")
-    lse = supportlib_v2.emis(ndvi, 
-                             pv,
-                             os.path.join(OUT_LST_FOLDER,
-                                    os.path.basename(imgDict[date]['B5_L2']['clipped_path']).replace('B5.TIF', 'lse' + '.TIF')),
-                                    imgDict[date]['B5_L2']['clipped_path'])
+    lse_path = os.path.join(FOLDERS[0], os.path.basename(imgDict[date]['B5_L2']['clipped_path']).replace('B5.TIF', 'lse.TIF'))
+    lse = supportlib_v2.emis(ndvi, pv, lse_path, imgDict[date]['B4_L2']['clipped_path'])
 
 
     pprint(f"Calculating Surface Temeperature for {date}")
-    lst = gamma_cal * (1 / lse * ((theta1_vals * sens_radiance) + theta2_vals) + theta3_vals ) + delta_cal
+    lst_path = os.path.join(OUTPUT_FOLDER,FOLDERS[0], os.path.basename(imgDict[date]['B5_L2']['clipped_path']).replace('B5.TIF', 'lst.TIF'))
+    lst = gamma_cal * (1 / lse * ((theta_vals['theta1'] * sens_radiance) + theta_vals['theta2']) + theta_vals['theta3'] ) + delta_cal
     lst_C = lst - 273.15
-    supportlib_v2.savetif(lst_C, os.path.join(OUT_LST_FOLDER, 
-                                    os.path.basename(imgDict[date]['B5_L2']['clipped_path']).replace('B5.TIF', 'lst' + '.TIF')),
-                                    imgDict[date]['B5_L2']['clipped_path'])
-    
-
+    supportlib_v2.savetif(lst, lst_path, imgDict[date]['B4_L2']['clipped_path'])
     
 
     pprint(f"Calculating Albedo for {date}")
-    Lb2 = supportlib_v2.lb_band(imgDict[date]['B2_L1']['RADIANCE_ADD'],
-                                imgDict[date]['B2_L1']['RADIANCE_MULT'],
-                                imgDict[date]['B2_L1']['clipped_path'],
-                                os.path.join(OUT_PREPROCESS_FOLDER, 
-                                            os.path.basename(imgDict[date]['B5_L2']['clipped_path']).replace('B5.TIF', 'L_B2' + '.TIF')))
+    bands = ['B2', 'B3', 'B4', 'B5', 'B6', 'B7']
+    esun_values = [esun[band] for band in bands]
 
-    Lb3 = supportlib_v2.lb_band(imgDict[date]['B3_L1']['RADIANCE_ADD'],
-                                imgDict[date]['B3_L1']['RADIANCE_MULT'],
-                                imgDict[date]['B3_L1']['clipped_path'],
-                                os.path.join(OUT_PREPROCESS_FOLDER, 
-                                            os.path.basename(imgDict[date]['B5_L2']['clipped_path']).replace('B5.TIF', 'L_B3' + '.TIF')))
-    
+    lb_values = {}
 
-    Lb4 = supportlib_v2.lb_band(imgDict[date]['B4_L1']['RADIANCE_ADD'],
-                                imgDict[date]['B4_L1']['RADIANCE_MULT'],
-                                imgDict[date]['B4_L1']['clipped_path'],
-                                os.path.join(OUT_PREPROCESS_FOLDER, 
-                                            os.path.basename(imgDict[date]['B5_L2']['clipped_path']).replace('B5.TIF', 'L_B4' + '.TIF')))
-    
-    Lb5 = supportlib_v2.lb_band(imgDict[date]['B5_L1']['RADIANCE_ADD'],
-                                imgDict[date]['B5_L1']['RADIANCE_MULT'],
-                                imgDict[date]['B5_L1']['clipped_path'],
-                                os.path.join(OUT_PREPROCESS_FOLDER, 
-                                            os.path.basename(imgDict[date]['B5_L2']['clipped_path']).replace('B5.TIF', 'L_B5' + '.TIF')))
-    
-    Lb6 = supportlib_v2.lb_band(imgDict[date]['B6_L1']['RADIANCE_ADD'],
-                                imgDict[date]['B6_L1']['RADIANCE_MULT'],
-                                imgDict[date]['B6_L1']['clipped_path'],
-                                os.path.join(OUT_PREPROCESS_FOLDER, 
-                                            os.path.basename(imgDict[date]['B5_L2']['clipped_path']).replace('B5.TIF', 'L_B6' + '.TIF')))
-    
-    Lb7 = supportlib_v2.lb_band(imgDict[date]['B7_L1']['RADIANCE_ADD'],
-                                imgDict[date]['B7_L1']['RADIANCE_MULT'],
-                                imgDict[date]['B7_L1']['clipped_path'],
-                                os.path.join(OUT_PREPROCESS_FOLDER, 
-                                            os.path.basename(imgDict[date]['B5_L2']['clipped_path']).replace('B5.TIF', 'L_B7' + '.TIF')))
-    
+    for band in bands:
+        band_path = os.path.join(OUTPUT_FOLDER, FOLDERS[3], os.path.basename(imgDict[date]['B5_L2']['clipped_path']).replace('B5.TIF', f'L_{band}.TIF'))
+        lb_values[band] = supportlib_v2.lb_band(
+            imgDict[date][f'{band}_L1']['RADIANCE_ADD'],
+            imgDict[date][f'{band}_L1']['RADIANCE_MULT'],
+            imgDict[date][f'{band}_L1']['clipped_path'],
+            band_path
+        )
+        
+    # Reflectivity calculations for all bands
+    reflectivity = {}
+    for i, band in enumerate(bands):
+        reflectivity[band] = supportlib_v2.reflectivity_band(
+            lb_values[band], esun_values[i], inverseSE,
+            imgDict[date]['B2_L1']['clipped_path'], zenithAngle,
+            os.path.join(OUTPUT_FOLDER, FOLDERS[3], os.path.basename(imgDict[date]['B2_L2']['clipped_path']).replace('B2.TIF', f'R_{band}.TIF'))
+        )
+        
+  
+    pb = {band: supportlib_v2.pb(esun[band], esun_sum) for band in bands}
+    albedo_toa = sum(supportlib_v2.albedo_toa_band(pb[band], reflectivity[band]) for band in bands)
 
-    reflectivity_band2 = supportlib_v2.reflectivity_band(Lb2, esun['B2'], inverseSE,
-                                     imgDict[date]['B2_L1']['clipped_path'],
-                                     zenithAngle,
-                                     os.path.join(OUT_PREPROCESS_FOLDER, 
-                                            os.path.basename(imgDict[date]['B2_L2']['clipped_path']).replace('B2.TIF', 'R_B2' + '.TIF')))
-    
-    reflectivity_band3 = supportlib_v2.reflectivity_band(Lb3, esun['B3'], inverseSE,
-                                     imgDict[date]['B2_L1']['clipped_path'],
-                                     zenithAngle,
-                                     os.path.join(OUT_PREPROCESS_FOLDER, 
-                                            os.path.basename(imgDict[date]['B2_L2']['clipped_path']).replace('B2.TIF', 'R_B3' + '.TIF')))
-    
-    reflectivity_band4 = supportlib_v2.reflectivity_band(Lb4, esun['B4'], inverseSE,
-                                     imgDict[date]['B2_L1']['clipped_path'],
-                                     zenithAngle,
-                                     os.path.join(OUT_PREPROCESS_FOLDER, 
-                                            os.path.basename(imgDict[date]['B2_L2']['clipped_path']).replace('B2.TIF', 'R_B4' + '.TIF')))
-    
-    reflectivity_band5 = supportlib_v2.reflectivity_band(Lb5, esun['B5'], inverseSE,
-                                     imgDict[date]['B2_L1']['clipped_path'],
-                                     zenithAngle,
-                                     os.path.join(OUT_PREPROCESS_FOLDER, 
-                                            os.path.basename(imgDict[date]['B2_L2']['clipped_path']).replace('B2.TIF', 'R_B5' + '.TIF')))
-    
-    reflectivity_band6= supportlib_v2.reflectivity_band(Lb6, esun['B6'], inverseSE,
-                                     imgDict[date]['B2_L1']['clipped_path'],
-                                     zenithAngle,
-                                     os.path.join(OUT_PREPROCESS_FOLDER, 
-                                            os.path.basename(imgDict[date]['B2_L2']['clipped_path']).replace('B2.TIF', 'R_B6' + '.TIF')))
-    
-    reflectivity_band7 = supportlib_v2.reflectivity_band(Lb7, esun['B7'], inverseSE,
-                                     imgDict[date]['B2_L1']['clipped_path'],
-                                     zenithAngle,
-                                     os.path.join(OUT_PREPROCESS_FOLDER, 
-                                            os.path.basename(imgDict[date]['B2_L2']['clipped_path']).replace('B2.TIF', 'R_B7' + '.TIF')))
-    
-    
-    pb2 = supportlib_v2.pb(esun['B2'], esun_sum)
-    pb3 = supportlib_v2.pb(esun['B3'], esun_sum)
-    pb4 = supportlib_v2.pb(esun['B4'], esun_sum)
-    pb5 = supportlib_v2.pb(esun['B5'], esun_sum)
-    pb6 = supportlib_v2.pb(esun['B6'], esun_sum)
-    pb7 = supportlib_v2.pb(esun['B7'], esun_sum)
+    albedo_path = os.path.join(OUTPUT_FOLDER, FOLDERS[4], os.path.basename(imgDict[date]['B2_L2']['clipped_path']).replace('B2.TIF', 'albedo.TIF'))
+    albd = supportlib_v2.albedo(albedo_toa, transmis_atm, albedo_path, imgDict[date]['B2_L1']['clipped_path'])
 
+    # Calculate Longwave Radiation Outwards
     
-    albedo_toa = supportlib_v2.albedo_toa_band(pb2, reflectivity_band2) + supportlib_v2.albedo_toa_band(pb3, reflectivity_band3) + \
-                supportlib_v2.albedo_toa_band(pb4, reflectivity_band4) + supportlib_v2.albedo_toa_band(pb5, reflectivity_band5) +\
-                supportlib_v2.albedo_toa_band(pb6, reflectivity_band6) + supportlib_v2.albedo_toa_band(pb7, reflectivity_band7)
-    
-    albd = supportlib_v2.albedo(albedo_toa, transmis_atm, os.path.join(OUT_ALBEDO_FOLDER, 
-                                            os.path.basename(imgDict[date]['B2_L2']['clipped_path']).replace('B2.TIF', 'albedo' + '.TIF')),
-                                            imgDict[date]['B2_L1']['clipped_path'])
-    
-    pprint(f"Calculating Longwave Radiation Outwards for {date}")
-    rad_long_out = supportlib_v2.longout(lse, lst, imgDict[date]['B5_L2']['clipped_path'],
-                                         os.path.join(OUT_RADIATION_FOLDER, 
-                                            os.path.basename(imgDict[date]['B5_L2']['clipped_path']).replace('B5.TIF', 'RadLongOut' + '.TIF')))
-                                                
-    pprint(f"Calculating Longwave Radiation Inwards for {date}")
-    rad_long_in = supportlib_v2.longin(emissivity_atmos, lst,
-                                       imgDict[date]['B5_L2']['clipped_path'],
-                                       os.path.join(OUT_RADIATION_FOLDER, 
-                                            os.path.basename(imgDict[date]['B5_L2']['clipped_path']).replace('B5.TIF', 'RadLongIn' + '.TIF')))
+    rad_long_out_path = os.path.join(OUTPUT_FOLDER,FOLDERS[2], os.path.basename(imgDict[date]['B5_L2']['clipped_path']).replace('B5.TIF', 'RadLongOut.TIF'))
+    rad_long_out = supportlib_v2.longout(lse, lst, imgDict[date]['B5_L2']['clipped_path'], rad_long_out_path)
 
+    # Calculate Longwave Radiation Inwards
+    rad_long_in_path = os.path.join(OUTPUT_FOLDER,FOLDERS[2], os.path.basename(imgDict[date]['B5_L2']['clipped_path']).replace('B5.TIF', 'RadLongIn.TIF'))
+    rad_long_in = supportlib_v2.longin(emissivity_atmos, lst, imgDict[date]['B5_L2']['clipped_path'], rad_long_in_path)
+
+    # Calculate Shortwave Radiation Inwards
     rad_short_in = supportlib_v2.shortin(SOLAR_CONSTANT, zenithAngle, inverseSE, transmis_atm)
-    pprint(rad_short_in)
+    
+    # Calculate Shortwave Radiation Outwards
+    rad_short_out_path = os.path.join(OUTPUT_FOLDER,FOLDERS[2], os.path.basename(imgDict[date]['B5_L2']['clipped_path']).replace('B5.TIF', 'RadShortOut.TIF'))
+    rad_short_out = supportlib_v2.shortout(albd, rad_short_in, imgDict[date]['B5_L2']['clipped_path'], rad_short_out_path)
 
-    rad_short_out = supportlib_v2.shortout(albd, rad_short_in, imgDict[date]['B5_L2']['clipped_path'],
-                                           os.path.join(OUT_RADIATION_FOLDER, 
-                                            os.path.basename(imgDict[date]['B5_L2']['clipped_path']).replace('B5.TIF', 'RadShortOut' + '.TIF')))
-
-    pprint(f"Calculating Net Radiation for {date}")
-    net_radiation = supportlib_v2.netradiation(rad_short_in, rad_short_out, rad_long_in, rad_long_out,
-                                               imgDict[date]['B5_L2']['clipped_path'],
-                                               os.path.join(OUT_RADIATION_FOLDER, 
-                                                os.path.basename(imgDict[date]['B5_L2']['clipped_path']).replace('B5.TIF', 'netRadaition' + '.TIF')))
-
+    # Calculate Net Radiation
+    net_radiation_path = os.path.join(OUTPUT_FOLDER,FOLDERS[2], os.path.basename(imgDict[date]['B5_L2']['clipped_path']).replace('B5.TIF', 'netRadiation.TIF'))
+    net_radiation = supportlib_v2.netradiation(rad_short_in, rad_short_out, rad_long_in, rad_long_out, imgDict[date]['B5_L2']['clipped_path'], net_radiation_path)
 
 end = time.time()
 print("The time of execution of above program is :",
