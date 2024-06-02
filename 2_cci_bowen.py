@@ -10,7 +10,7 @@ import time
 start_time = time.time()
 
 INPUT_FOLDER = r'/home/tereza/Documents/data/LANDSAT/RESULTS/clipped_bands'
-METEOROLOGY = r'/home/tereza/Documents/GitHub/repos/cooling_fcs/aux_data/weather_2023_olomouc.csv'   
+METEOROLOGY = r'/home/tereza/Documents/LANDSAT_2023/weather_2023_olomouc.csv'   
 JSON_MTL_PATH = supportlib_v2.getfilepath(INPUT_FOLDER, 'MTL.json') #['root/snimky_L9_testovaci/LC09_L2SP_190025_20220518_20220520_02_T1/LC09_L2SP_190025_20220518_20220520_02_T1_MTL.json']
 
 

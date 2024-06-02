@@ -4,7 +4,7 @@ import rasterio
 import rasterio.mask
 from pprint import pprint
 import numpy as np
-from sympy import Le, ln
+#from sympy import Le, ln
 import tifffile as tf
 import rasterio as rio
 from affine import Affine
@@ -129,8 +129,17 @@ def clipimage(maskPath, inputBand, outImgPath):
   
     
     with rasterio.open(outImgPath, "w", **out_meta) as dest:
+        pprint(f"maska: {maskPath}")
+        pprint(f"vstupni data: {inputBand}")
+        pprint(f"vystupni cesta: {outImgPath}")
         dest.write(out_image)
     
+    """pprint(f"maska: {maskPath}")
+    pprint(f"vstupni data: {inputBand}")
+    pprint(f"vystupni cesta: {outImgPath}")
+
+    command = f"gdalwarp -cutline {maskPath} -crop_to_cutline -dstnodata NoData {inputBand} {outImgPath}"
+    os.system(command)"""
 
    
     return 
@@ -154,13 +163,39 @@ def savetif(img_new, outputPath, image_georef, epsg = 'EPSG:32633'):
         height = img_new.shape[0],
         width = img_new.shape[1],
         count = 1,
-        nodata = -9999, # optinal value for nodata
+        #nodata = -9999, # optinal value for nodata
         dtype = img_new.dtype,
         crs = epsg, # driver for coordinate system code
         transform=afn,
         compress = "lzw")
     new_dataset.write(img_new, 1)
     new_dataset.close()
+
+    """step1 = gdal.Open(image_georef, gdal.GA_ReadOnly) 
+    GT_input = step1.GetGeoTransform()
+    afn = Affine.from_gdal(* GT_input)
+
+    
+    with rasterio.open(
+        outputPath,
+        'w',
+        driver = 'GTiff',
+        height = img_new.shape[0],
+        width = img_new.shape[1],
+        count = 1,
+        dtype = np.float32,
+        crs = epsg,
+        transform = afn,
+        compress = "lzw"
+    ) as dest_file:
+        dest_file.write(img_new, 1)
+        
+    dest_file.close()"""
+    
+    
+
+
+    
     return
 
 
