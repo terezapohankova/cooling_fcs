@@ -170,29 +170,7 @@ def savetif(img_new, outputPath, image_georef, epsg = 'EPSG:32633'):
         compress = "lzw")
     new_dataset.write(img_new, 1)
     new_dataset.close()
-
-    """step1 = gdal.Open(image_georef, gdal.GA_ReadOnly) 
-    GT_input = step1.GetGeoTransform()
-    afn = Affine.from_gdal(* GT_input)
-
-    
-    with rasterio.open(
-        outputPath,
-        'w',
-        driver = 'GTiff',
-        height = img_new.shape[0],
-        width = img_new.shape[1],
-        count = 1,
-        dtype = np.float32,
-        crs = epsg,
-        transform = afn,
-        compress = "lzw"
-    ) as dest_file:
-        dest_file.write(img_new, 1)
-        
-    dest_file.close()"""
-    
-    
+ 
 
 
     
@@ -478,35 +456,34 @@ def	atmemis(Ta_K):
 
 ######################################################################
 
-def ra(airDensity, LST, Ta, eo, es, psychro, Rn, reference_band, OutputPath, cp = 1013):
+"""def ra(airDensity, LST, Ta, eo, es, psychro, Rn, reference_band, OutputPath, cp = 1013):
     
     # Aerodynamic Resistance
     # via https://www.posmet.ufv.br/wp-content/uploads/2016/09/MET-479-Waters-et-al-SEBAL.pdf
 
-    """airDensity = Density of Air [kg/m3]
+    airDensity = Density of Air [kg/m3]
     LST = Land Surface Temperature [˚C]
     Ta = Air Temperature [˚C]
     eo = Partial Water Vapour Pressure [kPa]
     es = Saturated vapour pressure [kPa]
     psychro = Psychrometric constant [kPa/˚C]
     Rn = Net Energy Budget [W/m2]
-    cp = Specific heat at constant pressure [MJ/kg/°C"""
+    cp = Specific heat at constant pressure [MJ/kg/°C
 
     
     ra = (airDensity * cp * ((LST - Ta) + ((eo - es) / psychro))) / Rn
     savetif(ra, OutputPath, reference_band)
-    return ra 
+    return ra """
 
-
-def ra_2(h, u, reference_band, outputPath, zh = 2, zm = 2 ,k = 0.41):
+"""def ra_2(h, u, reference_band, outputPath, zh = 2, zm = 2 ,k = 0.41):
 
     
-    """h = average crop height [m]
+    h = average crop height [m]
     d = effective crop height [m]
     zom = the roughness length governing momentum transfer [m]
     zoh = length governing transfer of heat and vapour [m]
     u = wind speed [m/s]
-    zm, zh -> # standardized height for wind speed, temperature and humidity"""
+    zm, zh -> # standardized height for wind speed, temperature and humidity
     
     #h = np.array(tf.imread(h))
     d = (2/3) * h
@@ -518,17 +495,38 @@ def ra_2(h, u, reference_band, outputPath, zh = 2, zm = 2 ,k = 0.41):
     ra = ra_1 / ra_2
 
     savetif(ra, outputPath, reference_band)
-    return ra
+    return ra"""
 
-def z0m(vegHeigth):
+def z0m(vegHeight, outputPath):
 
     """
     # Roughness length governing momentum transfer [m]
 
     vegHeigth = height of vegetation
     """
+
+    
     z0m = 0.123 * vegHeight
+
+    #savetif(z0m, outputPath, vegHeight)
     return z0m
+
+def u_fric_vel_measure(wind_sp, measure_height, momentum_z0m ,k = 0.41):  
+    u = (k * wind_sp) / np.log(measure_height / momentum_z0m)
+    return u 
+
+def wind_speed_blending(blending_height, momentum_z0m, friction_vel_measure, k = 0.41):
+    u = friction_vel_measure * ((np.log(blending_height/momentum_z0m)) / k)
+    return u
+
+def u_fric_vel_pix(blend_height, wind_speed_blend, momentum_z0m, k = 0.41):
+
+    u = (k * wind_speed_blend) / (np.log(blend_height / momentum_z0m))
+    return u
+    
+def rah(z1, z2, fric_vel_pix, k = 0.41):
+    r_ah = (np.log(z2 / z1) ) / (fric_vel_pix / k)
+    return r_ah
 ######################################################################
 def slopeVapPress(Ta):
     slopeVapPress = round((4098 * 0.6108 * 2.7183 ** ((17.27 * Ta)/(Ta+237.3)) / (Ta + 237.3) ** 2),3)
@@ -539,22 +537,26 @@ def slopeVapPress(Ta):
 #   FLUXES
 ############################################################################################################################################
 
-def soilGFlux(LST, albedo, ndvi, Rn, outputPath, band_path):
+def soilGFlux(LST_C, albedo, ndvi, Rn, outputPath, reference_path):
     """
     # Soil/Ground Heat Flux [W/m2]
     # via BASTIAANSSEN, 2000 (BASTIAANSSEN, W. G. M. SEBAL - based sensible and latent heat fluxes in the irrigated Gediz Basin, Turkey. Journal of Hydrology, v.229, p.87-100, 2000.)
 
-    LST = Land Surface Temperature [˚C]
+    LST = Land Surface Temperature [°C]
     albedo = Albedo [-]
     ndvi = Normal Differential Vegetation Index [-]
     Rn - Net ENergy Budget [W/m-2]
     """
-    G = LST / albedo * (0.0038 * albedo + 0.0074 * albedo ** 2) * (1 - 0.98 * ndvi ** 4) * Rn
-    
-    #LST_K = LST - 273.15
-    #G = (Rn * (-13.46 + 0.507 * (4 * np.exp(0.123*LST_K)))) + 0.0086
 
-    #savetif(G, outputPath, band_path)
+    G = LST_C / albedo * (0.0038 * albedo + 0.0074 * albedo ** 2) * (1 - 0.98 * ndvi ** 4) * Rn
+    
+
+    G = np.where(ndvi < 0, Rn * 0.5, G)  #assume water
+    G = np.where((LST_C < 4) & (albedo > 0.45), Rn * 0.5, G) #assume snow
+
+    
+
+    savetif(G, outputPath, reference_path)
     return G
 
 ######################################################################
@@ -611,7 +613,7 @@ def le(EF, Rn, G, outputPath, band_path):
 
 def ET0(e0, SatVapCurve, WindSp, es, G, psych, Rn, Ta, outputPath, band_path):
     VPD = e0-es
-    ET0 = ((0.408 * SatVapCurve * (Rn - G) + psych * (900/(Ta + 273.15)) * WindSp * VPD)/(SatVapCurve + psych * (1+0.34 * WindSp)))/10
+    ET0 = ((0.408 * SatVapCurve * (Rn - G) + psych * (900/(Ta + 273.15)) * WindSp * VPD)/(SatVapCurve + psych * (1+0.34 * WindSp))) 
     savetif(ET0, outputPath, band_path)
     return ET0
 
@@ -826,20 +828,22 @@ def bowenIndex(H, LE, outputPath, band_path):
     return BI
 ######################################################################
 
-def ETI(Kc, ET0, outputPath):
+def ETI(Kc, ET0, outputPath, reference_img):
        #nanmax -> ignore nan values
     ETI = (Kc * ET0) /  np.nanmax(ET0)
-    #savetif(ETI, outputPath)
+    ETI = np.where(ETI > 1, 1, ETI)
+    savetif(ETI, outputPath, reference_img)
     return ETI
 ######################################################################
 
 def CCi(albedo, ETI, hillshade, outputPath, band_path):
-    #shade = np.array(tf.imread(shade))
+    shade = np.array(tf.imread(hillshade))
     #ETI_array = np.array(tf.imread(eti))
+    hillshade = np.array(tf.imread(hillshade))
     #normalization_hillshade = hillshade / 255
     
     CCi = (0.6 * hillshade) + (0.2 * albedo) + (0.2 * ETI)   
-    CCi[CCi < 0] = 0.5556
+    #CCi[CCi < 0] = 0.5556
     savetif(CCi, outputPath, band_path)
     return CCi
 
@@ -857,12 +861,12 @@ def Kc(red, nir, outputPath):
     #savetif(Kc, outputPath)
     return Kc
 
-def Kc_LAI(LAI, outputPath):
+def Kc_LAI(LAI, outputPath, reference_img):
     np.seterr(all = "ignore")
     Kc_LAI = (1 - np.exp(-0.7 * LAI))
-
+    Kc_LAI = np.where(LAI <= 3, Kc_LAI, (LAI/3))
     
-    #savetif(Kc_LAI, outputPath)
+    savetif(Kc_LAI, outputPath, reference_img)
     return Kc_LAI
 
 ############################################################################################################################################
@@ -911,7 +915,7 @@ def ndvi(nir_path, red_path, outputPath):
 
 ############################################################################################################################################
 
-def savi(red, nir, outputPath):
+def savi(red, nir, outputPath, reference_img):
     nir = np.array(tf.imread(nir))
     red = np.array(tf.imread(red))
 
@@ -919,16 +923,16 @@ def savi(red, nir, outputPath):
     SAVI =((1 + 0.5)*(nir-red)) / (nir + red + 0.5)
     SAVI[SAVI > 0.68] = 0.68
     
-    #savetif(SAVI, outputPath)
+    savetif(SAVI, outputPath, reference_img)
     return SAVI
 
 ############################################################################################################################################
 
-def lai(savi, outputPath):
+def lai(savi, outputPath, reference_img):
     LAI = np.where(savi > 0, np.log((0.61 - savi) / 0.51) / 0.91 * (-1), 0)
     LAI = np.where(savi >= 0.61, 1, LAI)
     
-    #savetif(LAI, outputPath)
+    savetif(LAI, outputPath, reference_img)
     return LAI
 
 ######################################################################

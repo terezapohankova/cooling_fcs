@@ -14,6 +14,7 @@ import time
 start_time = time.time()
 
 MASK = r'/home/tereza/ownCloud/skripty/COOLING_FUNCTIONS/INPUT_DATA/olomouc_32633_POLY.gpkg'
+VEG_HEIGHT = r'/home/tereza/ownCloud/skripty/COOLING_FUNCTIONS/INPUT_DATA/heff_30_olomouc_32633.tif'
 INPUT_FOLDER = r'/home/tereza/Documents/LANDSAT_2023'
 OUTPUT_PATH = r'/home/tereza/Documents/data/LANDSAT/RESULTS'
 

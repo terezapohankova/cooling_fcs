@@ -16,9 +16,16 @@ JSON_MTL_PATH = supportlib_v2.getfilepath(INPUT_FOLDER, 'MTL.json') #['root/snim
 
 OUTPUT_FOLDER = r'/home/tereza/Documents/data/LANDSAT/RESULTS'
 
-FOLDERS = ['lst', 'vegIndices', 'radiation', 'preprocess', 'albedo']
+FOLDERS = ['lst', 'vegIndices', 'radiation', 'preprocess', 'albedo', 'fluxes', 'et']
 for folder in FOLDERS:
     os.makedirs(os.path.join(OUTPUT_FOLDER, folder), exist_ok=True)
+
+Z = 219
+VEG_HEIGHT = r'/home/tereza/ownCloud/skripty/COOLING_FUNCTIONS/INPUT_DATA/heff_30_olomouc_32633.tif'
+HILLSHADE = r'/home/tereza/Documents/data/LANDSAT/INPUT_DATA/hillshade_normalized_olomouc_32633.tif'
+MEASURING_HEIGHT = 2
+BLENDING_HEIGHT = 200   
+AVG_VEG_METEOSTATION = 4 #average vegetation height around the meteostation
 
 
 mtlJSONFile = {}
@@ -175,9 +182,8 @@ for date in sensing_date_list:
     pprint('============')
     pprint(date)
 
-    ########## METEOROLOGICAL PARAMETERS ######################
-
     
+
     
     # from kg m-2 to g cm-2
     water_vap_cm = (float(meteorologyDict[date]['total_col_vat_wap_kg']) / 10)
@@ -226,10 +232,33 @@ for date in sensing_date_list:
     theta_vals = {key: sum(value.values()) for key, value in theta_terms.items()}
     
     
-    
+    ########## METEOROLOGICAL PARAMETERS ######################
     #pprint(f"Calculating Atmosphere Emissiivty for {date}")
+    
     emissivity_atmos = supportlib_v2.atmemis(ta_kelvin)
+    pprint(f' emissivity_atmos : {emissivity_atmos} pro {date}')
+
     transmis_atm = supportlib_v2.atm_transmiss(theta_vals['theta1'])
+    pprint(f' transmis_atm : {transmis_atm} pro {date}')
+
+    e0 = supportlib_v2.e0(meteorologyDict[date]['avg_temp'])
+    pprint(f' e0 : {e0} pro {date}')
+
+    es = supportlib_v2.es(meteorologyDict[date]['max_temp'], meteorologyDict[date]['min_temp'], meteorologyDict[date]['avg_temp'])
+
+    dealta_es = supportlib_v2.slopeVapPress(meteorologyDict[date]['avg_temp'])
+    pprint(f' dealta_es : {dealta_es} pro {date}')
+
+    p = supportlib_v2.atmPress(Z)
+    pprint(f' atmPress : {p} + {date}')
+
+    psychro = supportlib_v2.psychroCons(p)
+    pprint(f' psychro : {psychro} + {date}')
+
+    mom_rough_len_path = os.path.join(OUTPUT_FOLDER, FOLDERS[1], os.path.basename(imgDict[date]['B5_L2']['clipped_path']).replace('B5.TIF', 'z0m.TIF'))
+    mom_rough_len = supportlib_v2.z0m(AVG_VEG_METEOSTATION, mom_rough_len_path)
+    
+
     
 
     ########## SATELLITE PARAMETERS ######################
@@ -267,16 +296,16 @@ for date in sensing_date_list:
                               )
    
     pprint(f"Calculating Fraction og Vegetation Cover for {date}")
-    pv_path = os.path.join(OUTPUT_FOLDER,FOLDERS[1], os.path.basename(imgDict[date]['B5_L2']['clipped_path']).replace('B5.TIF', 'pv.TIF'))
+    pv_path = os.path.join(OUTPUT_FOLDER, FOLDERS[1], os.path.basename(imgDict[date]['B5_L2']['clipped_path']).replace('B5.TIF', 'pv.TIF'))
     pv = supportlib_v2.pv(ndvi, pv_path, imgDict[date]['B4_L2']['clipped_path'])
 
     pprint(f"Calculating Surface Emissivity for {date}")
-    lse_path = os.path.join(FOLDERS[0], os.path.basename(imgDict[date]['B5_L2']['clipped_path']).replace('B5.TIF', 'lse.TIF'))
+    lse_path = os.path.join(OUTPUT_FOLDER, FOLDERS[0], os.path.basename(imgDict[date]['B5_L2']['clipped_path']).replace('B5.TIF', 'lse.TIF'))
     lse = supportlib_v2.emis(ndvi, pv, lse_path, imgDict[date]['B4_L2']['clipped_path'])
 
 
     pprint(f"Calculating Surface Temeperature for {date}")
-    lst_path = os.path.join(OUTPUT_FOLDER,FOLDERS[0], os.path.basename(imgDict[date]['B5_L2']['clipped_path']).replace('B5.TIF', 'lst.TIF'))
+    lst_path = os.path.join(OUTPUT_FOLDER, FOLDERS[0], os.path.basename(imgDict[date]['B5_L2']['clipped_path']).replace('B5.TIF', 'lst.TIF'))
     lst = gamma_cal * (1 / lse * ((theta_vals['theta1'] * sens_radiance) + theta_vals['theta2']) + theta_vals['theta3'] ) + delta_cal
     lst_C = lst - 273.15
     supportlib_v2.savetif(lst, lst_path, imgDict[date]['B4_L2']['clipped_path'])
@@ -332,6 +361,42 @@ for date in sensing_date_list:
     # Calculate Net Radiation
     net_radiation_path = os.path.join(OUTPUT_FOLDER,FOLDERS[2], os.path.basename(imgDict[date]['B5_L2']['clipped_path']).replace('B5.TIF', 'netRadiation.TIF'))
     net_radiation = supportlib_v2.netradiation(rad_short_in, rad_short_out, rad_long_in, rad_long_out, imgDict[date]['B5_L2']['clipped_path'], net_radiation_path)
+    net_radiation_MJ = (net_radiation / 10**6) * 3600 * 24
+
+    g_path = os.path.join(OUTPUT_FOLDER,FOLDERS[5], os.path.basename(imgDict[date]['B5_L2']['clipped_path']).replace('B5.TIF', 'G.TIF'))
+    G_flux = supportlib_v2.soilGFlux(lst_C, albd, ndvi, net_radiation, g_path, imgDict[date]['B5_L2']['clipped_path'])
+    G_flux_MJ = (G_flux / 10**6) * 3600 * 24
+
+    fric_vel_2m = supportlib_v2.u_fric_vel_measure(meteorologyDict[date]['wind_sp'], MEASURING_HEIGHT, mom_rough_len) #friction velocity at height emasurement (2 m)
+    #pprint(np.nanmean(fric_vel_2m))
+
+    wind_sp_200m = supportlib_v2.wind_speed_blending(BLENDING_HEIGHT, mom_rough_len, fric_vel_2m) # wind speed at blending height )200 m)
+    #pprint(np.nanmean(fwind_sp_200m))
+
+    fric_vel_pixel = supportlib_v2.u_fric_vel_pix(BLENDING_HEIGHT, wind_sp_200m, mom_rough_len) # friction velocity for 200 m
+
+    #rah_outputpath = os.path.join(OUTPUT_FOLDER,FOLDERS[5], os.path.basename(imgDict[date]['B5_L2']['clipped_path']).replace('B5.TIF', 'friction_velocity.TIF'))
+    r_ah = supportlib_v2.rah(0.1, 2.0, fric_vel_pixel)
+    pprint("rah")
+    pprint(r_ah)
+
+    pmet0_path = os.path.join(OUTPUT_FOLDER,FOLDERS[5], os.path.basename(imgDict[date]['B5_L2']['clipped_path']).replace('B5.TIF', 'et0_PM.TIF'))
+    pm_et0 = supportlib_v2.ET0(e0, dealta_es, meteorologyDict[date]['wind_sp'], es, G_flux_MJ, psychro, net_radiation_MJ, meteorologyDict[date]['avg_temp'], pmet0_path, imgDict[date]['B5_L2']['clipped_path'])
+
+    savi_path = os.path.join(OUTPUT_FOLDER,FOLDERS[1], os.path.basename(imgDict[date]['B5_L2']['clipped_path']).replace('B5.TIF', 'savi.TIF'))
+    savi_index = supportlib_v2.savi(imgDict[date]['B4_L2']['clipped_path'], imgDict[date]['B5_L2']['clipped_path'], savi_path, imgDict[date]['B5_L2']['clipped_path'])
+    
+    lai_path = os.path.join(OUTPUT_FOLDER,FOLDERS[1], os.path.basename(imgDict[date]['B5_L2']['clipped_path']).replace('B5.TIF', 'lai.TIF'))
+    lai_index = supportlib_v2.lai(savi_index, lai_path, imgDict[date]['B5_L2']['clipped_path'])
+    
+    kc_path = os.path.join(OUTPUT_FOLDER,FOLDERS[1], os.path.basename(imgDict[date]['B5_L2']['clipped_path']).replace('B5.TIF', 'Kc_lai.TIF'))
+    kc_lai = supportlib_v2.Kc_LAI(lai_index, kc_path, imgDict[date]['B5_L2']['clipped_path'])
+
+    eti_path = os.path.join(OUTPUT_FOLDER,FOLDERS[6], os.path.basename(imgDict[date]['B5_L2']['clipped_path']).replace('B5.TIF', 'eti.TIF'))
+    eti = supportlib_v2.ETI(kc_lai, pm_et0, eti_path, imgDict[date]['B5_L2']['clipped_path'])
+
+    cci_path = os.path.join(OUTPUT_FOLDER,FOLDERS[6], os.path.basename(imgDict[date]['B5_L2']['clipped_path']).replace('B5.TIF', 'ci.TIF'))
+    cci = supportlib_v2.CCi(albd, eti, HILLSHADE, cci_path, imgDict[date]['B5_L2']['clipped_path'])
 
 end = time.time()
 print("The time of execution of above program is :",
