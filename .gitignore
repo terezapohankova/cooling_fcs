@@ -6,3 +6,5 @@
 *.gpkg
 
 aux_data/**
+
+__pycache__/**

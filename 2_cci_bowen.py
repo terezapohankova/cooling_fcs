@@ -10,7 +10,8 @@ import time
 start_time = time.time()
 
 INPUT_FOLDER = r'/home/tereza/Documents/data/LANDSAT/RESULTS/clipped_bands'
-METEOROLOGY = r'/home/tereza/Documents/LANDSAT_2023/weather_2023_olomouc.csv'   
+METEOROLOGY = r'aux_data/weather_2023_olomouc.csv'   
+HILLSHADE = r'aux_data/hillshade_olomouc_32633.tif'
 JSON_MTL_PATH = supportlib_v2.getfilepath(INPUT_FOLDER, 'MTL.json') #['root/snimky_L9_testovaci/LC09_L2SP_190025_20220518_20220520_02_T1/LC09_L2SP_190025_20220518_20220520_02_T1_MTL.json']
 
 
@@ -21,8 +22,6 @@ for folder in FOLDERS:
     os.makedirs(os.path.join(OUTPUT_FOLDER, folder), exist_ok=True)
 
 Z = 219
-VEG_HEIGHT = r'/home/tereza/ownCloud/skripty/COOLING_FUNCTIONS/INPUT_DATA/heff_30_olomouc_32633.tif'
-HILLSHADE = r'/home/tereza/Documents/data/LANDSAT/INPUT_DATA/hillshade_normalized_olomouc_32633.tif'
 MEASURING_HEIGHT = 2
 BLENDING_HEIGHT = 200   
 AVG_VEG_METEOSTATION = 4 #average vegetation height around the meteostation
@@ -361,11 +360,14 @@ for date in sensing_date_list:
     # Calculate Net Radiation
     net_radiation_path = os.path.join(OUTPUT_FOLDER,FOLDERS[2], os.path.basename(imgDict[date]['B5_L2']['clipped_path']).replace('B5.TIF', 'netRadiation.TIF'))
     net_radiation = supportlib_v2.netradiation(rad_short_in, rad_short_out, rad_long_in, rad_long_out, imgDict[date]['B5_L2']['clipped_path'], net_radiation_path)
-    net_radiation_MJ = (net_radiation / 10**6) * 3600 * 24
+    
+    net_radiation_path_MJ = os.path.join(OUTPUT_FOLDER,FOLDERS[2], os.path.basename(imgDict[date]['B5_L2']['clipped_path']).replace('B5.TIF', 'netRadiation_MJ.TIF'))
+    net_radiation_MJ = (((net_radiation / 10 ** 6)) * 3600 * 24) / 10
+    supportlib_v2.savetif(net_radiation_MJ, net_radiation_path_MJ, imgDict[date]['B5_L2']['clipped_path'])
 
     g_path = os.path.join(OUTPUT_FOLDER,FOLDERS[5], os.path.basename(imgDict[date]['B5_L2']['clipped_path']).replace('B5.TIF', 'G.TIF'))
     G_flux = supportlib_v2.soilGFlux(lst_C, albd, ndvi, net_radiation, g_path, imgDict[date]['B5_L2']['clipped_path'])
-    G_flux_MJ = (G_flux / 10**6) * 3600 * 24
+    G_flux_MJ = (((G_flux / 10 ** 6)) * 3600 * 24) / 10
 
     fric_vel_2m = supportlib_v2.u_fric_vel_measure(meteorologyDict[date]['wind_sp'], MEASURING_HEIGHT, mom_rough_len) #friction velocity at height emasurement (2 m)
     #pprint(np.nanmean(fric_vel_2m))
@@ -377,10 +379,11 @@ for date in sensing_date_list:
 
     #rah_outputpath = os.path.join(OUTPUT_FOLDER,FOLDERS[5], os.path.basename(imgDict[date]['B5_L2']['clipped_path']).replace('B5.TIF', 'friction_velocity.TIF'))
     r_ah = supportlib_v2.rah(0.1, 2.0, fric_vel_pixel)
-    pprint("rah")
-    pprint(r_ah)
 
-    pmet0_path = os.path.join(OUTPUT_FOLDER,FOLDERS[5], os.path.basename(imgDict[date]['B5_L2']['clipped_path']).replace('B5.TIF', 'et0_PM.TIF'))
+    fraction_path = os.path.join(OUTPUT_FOLDER,FOLDERS[5], os.path.basename(imgDict[date]['B5_L2']['clipped_path']).replace('B5.TIF', 'etf.TIF'))
+    fraction = supportlib_v2.ef(lst, ndvi, fraction_path, imgDict[date]['B5_L2']['clipped_path'])
+
+    pmet0_path = os.path.join(OUTPUT_FOLDER,FOLDERS[6], os.path.basename(imgDict[date]['B5_L2']['clipped_path']).replace('B5.TIF', 'et0_PM_inst_mm.TIF'))
     pm_et0 = supportlib_v2.ET0(e0, dealta_es, meteorologyDict[date]['wind_sp'], es, G_flux_MJ, psychro, net_radiation_MJ, meteorologyDict[date]['avg_temp'], pmet0_path, imgDict[date]['B5_L2']['clipped_path'])
 
     savi_path = os.path.join(OUTPUT_FOLDER,FOLDERS[1], os.path.basename(imgDict[date]['B5_L2']['clipped_path']).replace('B5.TIF', 'savi.TIF'))
@@ -395,8 +398,13 @@ for date in sensing_date_list:
     eti_path = os.path.join(OUTPUT_FOLDER,FOLDERS[6], os.path.basename(imgDict[date]['B5_L2']['clipped_path']).replace('B5.TIF', 'eti.TIF'))
     eti = supportlib_v2.ETI(kc_lai, pm_et0, eti_path, imgDict[date]['B5_L2']['clipped_path'])
 
-    cci_path = os.path.join(OUTPUT_FOLDER,FOLDERS[6], os.path.basename(imgDict[date]['B5_L2']['clipped_path']).replace('B5.TIF', 'ci.TIF'))
+    cci_path = os.path.join(OUTPUT_FOLDER,FOLDERS[6], os.path.basename(imgDict[date]['B5_L2']['clipped_path']).replace('B5.TIF', 'cci.TIF'))
     cci = supportlib_v2.CCi(albd, eti, HILLSHADE, cci_path, imgDict[date]['B5_L2']['clipped_path'])
+
+    
+    ETa_path = os.path.join(OUTPUT_FOLDER,FOLDERS[6], os.path.basename(imgDict[date]['B5_L2']['clipped_path']).replace('B5.TIF', 'eta_ssebop.TIF'))
+    ETa = fraction * pm_et0
+    supportlib_v2.savetif(ETa, ETa_path, imgDict[date]['B5_L2']['clipped_path'])
 
 end = time.time()
 print("The time of execution of above program is :",

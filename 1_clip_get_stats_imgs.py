@@ -13,8 +13,7 @@ import supportlib_v2
 import time
 start_time = time.time()
 
-MASK = r'/home/tereza/ownCloud/skripty/COOLING_FUNCTIONS/INPUT_DATA/olomouc_32633_POLY.gpkg'
-VEG_HEIGHT = r'/home/tereza/ownCloud/skripty/COOLING_FUNCTIONS/INPUT_DATA/heff_30_olomouc_32633.tif'
+AREA_MASK = r'aux_data/water_area_mask.gpkg'
 INPUT_FOLDER = r'/home/tereza/Documents/LANDSAT_2023'
 OUTPUT_PATH = r'/home/tereza/Documents/data/LANDSAT/RESULTS'
 
@@ -66,7 +65,7 @@ for inputBand in ORIGINAL_IMG:
     if 'L2SP' and 'QA_PIXEL' in image_basename:
         date = image_basename.split('_')[3]
         clippedImgPath = os.path.join(OUT_CLIP_FOLDER, date, 'clipped_' + (os.path.basename(inputBand)))
-        supportlib_v2.clipimage(MASK, inputBand, clippedImgPath)
+        supportlib_v2.clipimage(AREA_MASK, inputBand, clippedImgPath, True, False)
         pprint(clippedImgPath)
     
         
@@ -77,7 +76,8 @@ for inputBand in ORIGINAL_IMG:
                    
         date = image_basename.split('_')[3] # '20220612'   
         clippedImgPath = os.path.join(OUT_CLIP_FOLDER, date, 'clipped_' + (os.path.basename(inputBand))) # '/home/tereza/Documents/testy_VSC/clipped_bands/20220612/clipped_LC09_L2SP_189026_20220612_20220614_02_T1_SR_B1.TIF'                                                    
-        supportlib_v2.clipimage(MASK, inputBand, clippedImgPath)
+        supportlib_v2.clipimage(AREA_MASK, inputBand, clippedImgPath, True, False)
+
         pprint(clippedImgPath)
 ### create dictionary for QA_PIXEL band that will get the frequency of each pixel value for each sensing date
 

@@ -101,7 +101,7 @@ def load_json(jsonFile):
 
 ######################################################################
 
-def clipimage(maskPath, inputBand, outImgPath):
+def clipimage(maskPath, inputBand, outImgPath, cropping = True, filling = True, inversion = False):
 
     """
     # Image clipping using a pre-prepared GeoPackage mask in the same coordinate system as the images
@@ -116,9 +116,9 @@ def clipimage(maskPath, inputBand, outImgPath):
         shapes = [feature["geometry"] for feature in gpkg]
 
     with rasterio.open(inputBand) as src:
-        out_image, out_transform = rasterio.mask.mask(src, shapes, crop=True, filled=True)
+        out_image, out_transform = rasterio.mask.mask(src, shapes, crop = cropping, filled = filling, invert = inversion)
         out_meta = src.meta.copy()
-    
+
     out_meta.update({"driver": "GTiff", # output format GeoTiff
                     "height": out_image.shape[1],
                     "width": out_image.shape[2],
@@ -613,10 +613,23 @@ def le(EF, Rn, G, outputPath, band_path):
 
 def ET0(e0, SatVapCurve, WindSp, es, G, psych, Rn, Ta, outputPath, band_path):
     VPD = e0-es
-    ET0 = ((0.408 * SatVapCurve * (Rn - G) + psych * (900/(Ta + 273.15)) * WindSp * VPD)/(SatVapCurve + psych * (1+0.34 * WindSp))) 
-    savetif(ET0, outputPath, band_path)
-    return ET0
+    ET0_inst = ((0.000408 * SatVapCurve * (Rn - G) + psych * (900 / (Ta + 273.15)) * WindSp * VPD)/(SatVapCurve + psych * (1 + 0.34 * WindSp))) 
+    #ET0 = ET0 * 0.000408
+    savetif(ET0_inst, outputPath, band_path)
+    return ET0_inst
 
+
+def ef(lst, ndvi, output_path, refernce_img):
+
+    ndvi = np.where(ndvi > 0.05, ndvi, np.nan)
+    Thot = np.nanmin(ndvi) + np.nanmax(lst)
+    Tcold = np.nanmax(ndvi) + np.nanmin(lst)
+    evapofract = (Thot - lst) / (Thot - Tcold)
+
+
+    savetif(evapofract, output_path, refernce_img)
+
+    return
 ############################################################################################################################################
 #   RADIATION
 ############################################################################################################################################
@@ -840,9 +853,9 @@ def CCi(albedo, ETI, hillshade, outputPath, band_path):
     shade = np.array(tf.imread(hillshade))
     #ETI_array = np.array(tf.imread(eti))
     hillshade = np.array(tf.imread(hillshade))
-    #normalization_hillshade = hillshade / 255
+    normalization_hillshade = hillshade / 255
     
-    CCi = (0.6 * hillshade) + (0.2 * albedo) + (0.2 * ETI)   
+    CCi = (0.6 * normalization_hillshade) + (0.2 * albedo) + (0.2 * ETI)   
     #CCi[CCi < 0] = 0.5556
     savetif(CCi, outputPath, band_path)
     return CCi
