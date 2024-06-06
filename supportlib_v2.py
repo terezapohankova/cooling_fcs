@@ -243,8 +243,10 @@ def dr(sunDist):
 
     sunDist = distance Earth-Sun in AU extracted from image metadata (EARTH_SUN_DISTANCE)
     """
+
+    dr_num = 1 / (sunDist ** 2)
      
-    return 1 / (sunDist** 2) 
+    return dr_num
 
 ############################################################################################################################################
 
@@ -613,10 +615,11 @@ def le(EF, Rn, G, outputPath, band_path):
 
 def ET0(e0, SatVapCurve, WindSp, es, G, psych, Rn, Ta, outputPath, band_path):
     VPD = e0-es
-    ET0_inst = ((0.000408 * SatVapCurve * (Rn - G) + psych * (900 / (Ta + 273.15)) * WindSp * VPD)/(SatVapCurve + psych * (1 + 0.34 * WindSp))) 
-    #ET0 = ET0 * 0.000408
-    savetif(ET0_inst, outputPath, band_path)
-    return ET0_inst
+    ET0_daily = ((0.408 * SatVapCurve * (Rn - G) + psych * (900 / (Ta + 273.15)) 
+                 * WindSp * VPD)/(SatVapCurve + psych * (1 + 0.34 * WindSp))) 
+    
+    savetif(ET0_daily, outputPath, band_path)
+    return ET0_daily
 
 
 def ef(lst, ndvi, output_path, refernce_img):
@@ -626,9 +629,21 @@ def ef(lst, ndvi, output_path, refernce_img):
     Tcold = np.nanmax(ndvi) + np.nanmin(lst)
     evapofract = (Thot - lst) / (Thot - Tcold)
 
+    evapofract = np.where(evapofract == np.nan, np.nanmean(evapofract), evapofract )
 
     savetif(evapofract, output_path, refernce_img)
 
+    return evapofract
+
+
+def ea(et0, ef, ndvi, outputPath, reference_img):
+
+    ef_correct =  (0.35*(ndvi/0.7)+0.65) * ef
+    eactual = (et0 / 86400) * ef_correct
+    
+    
+    
+    savetif(eactual, outputPath, reference_img)
     return
 ############################################################################################################################################
 #   RADIATION
@@ -692,7 +707,7 @@ def longout(emisSurf, LST, reference_band_path, outputPath):
     #LST = LST + 273.15
     longOut = emisSurf * 5.6703 * 10.0 ** (-8.0) * LST ** 4
 
-    #savetif(longOut, outputPath, reference_band_path)
+    savetif(longOut, outputPath, reference_band_path)
     return longOut
 
 ######################################################################
@@ -707,7 +722,7 @@ def longin(emisAtm, LST, reference_band_path, outputPath):
     """
     #LST = LST + 273.15
     longIn = emisAtm * 5.6703 * 10.0 ** (-8.0) * LST ** 4
-    #savetif(longIn, outputPath, reference_band_path)
+    savetif(longIn, outputPath, reference_band_path)
     return longIn
 
 ######################################################################
@@ -736,8 +751,12 @@ def ecc_corr(doy):
 
 def shortin(solar_cons, solar_zenith_angle, inverte_SE, atm_trans):
     # https://posmet.ufv.br/wp-content/uploads/2017/04/MET-479-Waters-et-al-SEBAL.pdf
+
+    pprint("cos")
+    pprint((math.cos(math.radians(solar_zenith_angle))))
     
-    return solar_cons * math.cos(solar_zenith_angle) * inverte_SE * atm_trans
+    return solar_cons * math.cos(math.radians(solar_zenith_angle)) * inverte_SE * atm_trans
+
     #return solar_cons * solar_zenith_angle * inverte_SE * atm_trans
     
 
@@ -760,12 +779,12 @@ def shortout(albedo, shortin, reference_band_path, outputPath):
     shortin = Shortwave Incoming Radiation [W/m2]
     """
     shortOut =  albedo * shortin
-    #savetif(shortOut, outputPath, reference_band_path)  
+    savetif(shortOut, outputPath, reference_band_path)  
     return shortOut
 
 ######################################################################
 
-def netradiation(shortIn, shortOut, longIn, longOut, reference_band_path, outputPath):
+def netradiation(shortIn, shortOut, longIn, longOut, reference_band_path, outputPath, albedo, lse):
     """
     # Net Energy Bdget [W/m2]
     # via https://www.redalyc.org/journal/2736/273652409002/html/#redalyc_273652409002_ref4
@@ -775,8 +794,13 @@ def netradiation(shortIn, shortOut, longIn, longOut, reference_band_path, output
     longIn = Incoming Longwave Radiation [W/m2]
     longOut = Outgoing Longwave Radiation [W/m2]
     """
-    Rn = shortIn - shortOut + longIn - longOut
-    
+    Rn = (shortIn - shortOut) + (longIn - longOut)
+    short_diff = shortIn - shortOut
+    long_diff = longIn - longOut
+
+    #Rn = short_diff + long_diff
+    #Rn = np.where(Rn < 0, Rn * (-1), Rn)
+    Rn = (1 - albedo) * shortIn + longIn - longOut - (1 - lse) * longIn
    
     savetif(Rn, outputPath, reference_band_path)
     return Rn
