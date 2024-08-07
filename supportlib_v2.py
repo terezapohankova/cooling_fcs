@@ -291,13 +291,9 @@ def reflectivity_band(lb, esun_band, dr, band_path, zenithAngle, outputPath):
     """
     band = np.array(tf.imread(band_path))
     
-    #refl = (MultRef * band) + AddRef
-    #rb = refl / (math.cos(zenithAngle) * (dr))
-
-    #rb = (band / (math.cos(zenithAngle) * (dr)))
-    rb = (math.pi * lb) / (esun_band * (math.cos(zenithAngle) * (dr)))
+    rb = (3.14 * lb) / (esun_band * (math.cos(math.radians(zenithAngle)) * (dr)))
     
-    #savetif(rb, outputPath, band_path)
+    savetif(rb, outputPath, band_path)
     return rb
 
 ######################################################################
@@ -315,7 +311,7 @@ def kb(rb, lb, dr, zenithAngle, outputPath, band_path):
     #rb_band = np.array(tf.imread(rb))
     #lb_band = np.array(tf.imread(lb))
     
-    kb = (math.pi * lb) / (rb * math.cos(zenithAngle) * dr)
+    kb = (math.pi * lb) / (rb * math.cos(math.radians(zenithAngle)) * dr)
     kb[kb < 0] = 0
 
     savetif(kb, outputPath, band_path) 
@@ -458,24 +454,24 @@ def	atmemis(Ta_K):
 
 ######################################################################
 
-"""def ra(airDensity, LST, Ta, eo, es, psychro, Rn, reference_band, OutputPath, cp = 1013):
+def ra(airDensity, LST, Ta, eo, es, psychro, Rn, reference_band, OutputPath, cp = 1013):
     
     # Aerodynamic Resistance
     # via https://www.posmet.ufv.br/wp-content/uploads/2016/09/MET-479-Waters-et-al-SEBAL.pdf
 
-    airDensity = Density of Air [kg/m3]
+    """airDensity = Density of Air [kg/m3]
     LST = Land Surface Temperature [˚C]
     Ta = Air Temperature [˚C]
     eo = Partial Water Vapour Pressure [kPa]
     es = Saturated vapour pressure [kPa]
     psychro = Psychrometric constant [kPa/˚C]
     Rn = Net Energy Budget [W/m2]
-    cp = Specific heat at constant pressure [MJ/kg/°C
+    cp = Specific heat at constant pressure """
 
     
     ra = (airDensity * cp * ((LST - Ta) + ((eo - es) / psychro))) / Rn
-    savetif(ra, OutputPath, reference_band)
-    return ra """
+    #savetif(ra, OutputPath, reference_band)
+    return ra 
 
 """def ra_2(h, u, reference_band, outputPath, zh = 2, zm = 2 ,k = 0.41):
 
@@ -563,7 +559,7 @@ def soilGFlux(LST_C, albedo, ndvi, Rn, outputPath, reference_path):
 
 ######################################################################
 
-def sensHFlux(airDens, LST, ra, Ta, outputPath, cp = 0.001013):
+def sensHFlux(airDens, LST_K, ra, Ta_K, outputPath, reference_img, cp = 0.001013):
     
     # Sensible Heat Flux
     # via
@@ -577,11 +573,9 @@ def sensHFlux(airDens, LST, ra, Ta, outputPath, cp = 0.001013):
     Ta_K = Air Temperature [K]"""
     
     
-    LST_K = LST + 273.15
-    Ta_K = Ta + 273.15
 
     H = (airDens * cp * (LST_K - Ta_K)) / ra
-    savetif(H, outputPath)
+    savetif(H, outputPath, reference_img)
     return H
 
 def H(LE, Rn, G, outputPath, band_path):
@@ -591,23 +585,29 @@ def H(LE, Rn, G, outputPath, band_path):
     #Rn = np.array(tf.imread(Rn))
     #G = np.array(tf.imread(G))
 
-    h = (Rn - G) - LE
+    h = Rn - G - LE
     savetif(h, outputPath, band_path)
 
     return h
 
 ######################################################################
 
-def le(EF, Rn, G, outputPath, band_path):
-    """
+def tr(air_temp_k):
+    return 1 - 373.15 / air_temp_k
+
+def e_aster(Po, Tr):
+    return Po * np.exp((13.3185*Tr) - (1.976*(Tr**2)) - (0.6445*(Tr**3)) - (0.1299*(Tr**4)))
+
+def delta_pt(e_ast, air_temp_k, Tr):
+    return ((373.15 * e_ast) / (air_temp_k**2)) * (13.3185 - (3.952*Tr) - (1.9335*(Tr**2)) - (0.5196*(Tr**3)))
+
+
+def le(phi, Rn, G, delta_pt, psychro, outputPath, band_path):
+    
     # Latent HEat Flux [W/m2]
     # via Baasriansen, 2000 (BASTIAANSSEN, W. G. M. SEBAL - based sensible and latent heat fluxes in the irrigated Gediz Basin, Turkey. Journal of Hydrology, v.229, p.87-100, 2000.)
 
-    EF = Frantion of Evaporation [-]
-    Rn = Net Energy Budget [W/m2]
-    G = Soil/Ground Heat Flux [W/m2]
-    """
-    LE = EF * (Rn - G)
+    LE = phi * (Rn - G * (delta_pt / (delta_pt + psychro)))
     savetif(LE, outputPath, band_path)
     return LE
 
@@ -636,6 +636,92 @@ def ef(lst, ndvi, output_path, refernce_img):
     return evapofract
 
 
+
+def phi_max(ndvi, lst, num_intervals, reference_band, outputPath, phi_min_global=0):
+    
+    np.seterr(all="ignore")
+    global_phi_max = np.nanmax(ndvi)
+    global_phi_max_values = np.zeros_like(ndvi)
+
+    # Segment NDVI into intervals and determine \phi_{\max} for each interval
+    ndvi_intervals = np.linspace(np.nanmin(ndvi), np.nanmax(ndvi), num=num_intervals)
+
+    for i in range(len(ndvi_intervals) - 1):
+        # Create a mask to identify pixels within the current NDVI interval
+        mask = (ndvi >= ndvi_intervals[i]) & (ndvi < ndvi_intervals[i + 1])
+
+        if np.any(mask):
+            # Find the pixel with the lowest temperature within this NDVI interval
+            masked_lst = lst[mask]
+            min_index = np.argmin(masked_lst)
+            lowest_temp_pixel = np.where(mask)[0][min_index], np.where(mask)[1][min_index]
+
+            interval_phi_max = ndvi[lowest_temp_pixel]
+            global_phi_max_values[mask] = interval_phi_max
+        else:
+            # Handle case where no pixels in the interval
+            print(f"No pixels in NDVI interval {i}")  # Or handle differently
+
+    # Interpolate \phi_{\max} for each pixel
+    phi_max = phi_min_global + (ndvi / global_phi_max) * (global_phi_max_values - phi_min_global)
+    #global_phi[np.isnan(global_phi)] = 0
+    
+    if np.any(phi_max):
+        pprint('phi_max')
+        savetif(phi_max, r'/home/tereza/Documents/data/LANDSAT/RESULTS/vegIndices/phi_max.TIF', 
+                r'/home/tereza/Documents/data/LANDSAT/RESULTS/vegIndices/clipped_LC09_L2SP_190025_20230926_20230928_02_T1_SR_ndvi.TIF')
+    else:
+        pprint('None')
+    return phi_max
+
+import numpy as np
+
+def phi_min(ndvi, phi_min_global, num_intervals, phi_max):
+    # Determine NDVI interval boundaries
+    ndvi_max = np.nanmax(ndvi)
+    
+    # Segment NDVI into intervals and determine \phi_{\max} for each interval
+    ndvi_intervals = np.linspace(np.nanmin(ndvi), np.nanmax(ndvi), num=num_intervals)
+    
+    for i in range(len(ndvi_intervals) - 1):
+        # Create a mask to identify pixels within the current NDVI interval
+        mask = (ndvi >= ndvi_intervals[i]) & (ndvi < ndvi_intervals[i + 1])
+        if np.any(mask):
+
+            phi_min_intervals = phi_min_global + (ndvi / ndvi_max) * (phi_max - phi_min_global)
+    
+    if np.any(phi_min_intervals):
+        savetif(phi_min_intervals, r'/home/tereza/Documents/data/LANDSAT/RESULTS/vegIndices/phi_min_intervals.TIF', 
+                r'/home/tereza/Documents/data/LANDSAT/RESULTS/vegIndices/clipped_LC09_L2SP_190025_20230926_20230928_02_T1_SR_ndvi.TIF')
+    else:
+        pprint('None')
+  
+    return phi_min_intervals
+
+def interpolate_phi(lst, ndvi, phi_min, phi_max):
+    # Normalize LST and NDVI (adjust normalization method as needed)
+    lst_norm = (lst - np.nanmin(lst)) / (np.nanmax(lst) - np.nanmin(lst))
+    
+    ndvi_norm = (ndvi - np.nanmin(ndvi)) / (np.nanmax(ndvi) - np.nanmin(ndvi))
+    pprint(np.nanmean(ndvi_norm))
+    
+    # Assign weights (adjust weights based on desired relationship)
+    weight_lst = 1 - lst_norm
+    weight_ndvi = ndvi_norm
+
+    # Calculate weighted average
+    phi = weight_lst * phi_min + weight_ndvi * phi_max
+
+    if np.any(phi):
+        savetif(phi, r'/home/tereza/Documents/data/LANDSAT/RESULTS/vegIndices/phi.TIF', 
+                r'/home/tereza/Documents/data/LANDSAT/RESULTS/vegIndices/clipped_LC09_L2SP_190025_20230926_20230928_02_T1_SR_ndvi.TIF')
+    else:
+        pprint('None')
+  
+
+    return phi
+
+
 def ea(et0, ef, ndvi, outputPath, reference_img):
 
     ef_correct =  (0.35*(ndvi/0.7)+0.65) * ef
@@ -651,7 +737,7 @@ def ea(et0, ef, ndvi, outputPath, reference_img):
 
 
 
-def bt(K1, K2, RadAddBand, RadMultBand, outputPath, thermal_band, reference_band):
+def bt(K1, K2, L_sen, outputPath, thermal_band, reference_band):
     """
     # Top of Atmosphere Brightness Temperature [˚C/K]
     # via Landsat 8 Data Users Handbook (https://www.usgs.gov/media/files/landsat-8-data-users-handbook)
@@ -665,22 +751,25 @@ def bt(K1, K2, RadAddBand, RadMultBand, outputPath, thermal_band, reference_band
     """
     
     thermal_band = np.array(tf.imread(thermal_band))
-    TOARad = RadMultBand * thermal_band + RadAddBand ## calibrated radiance TOA W/(m^2 sr)
+    #TOARad = RadMultBand * thermal_band + RadAddBand ## calibrated radiance TOA W/(m^2 sr)
 
-    BT = (K2 / np.log(K1/TOARad + 1)) #- 273.15      ## brightness temeprature in ˚C
+    #BT = (K2 / np.log(K1/TOARad + 1)) #- 273.15      ## brightness temeprature in ˚C
     #BT[BT == -273.15] = 0
-    #savetif(BT, outputPath, reference_band)
+
+    BT = (K2 / np.log(K1 / L_sen + 1))
+    savetif(BT, outputPath, reference_band)
     return BT
 
 
 
 # sensor radiance
-def sensor_radiance(bt, K1, K2, outputPath, reference_band):
+def sensor_radiance(gain, thermal_band, offset, outputPath, reference_band):
     warnings.filterwarnings('ignore')
 
-
-    Lsens = K1 / (np.exp(K2 / bt) - 1)
-    #savetif(Lsens, outputPath, reference_band)
+    thermal_band = np.array(tf.imread(thermal_band))
+    #Lsens = K1 / (np.exp(K2 / bt) - 1)
+    Lsens = gain * thermal_band + offset
+    savetif(Lsens, outputPath, reference_band)
     return Lsens
 
 
@@ -859,8 +948,8 @@ def bowenIndex(H, LE, outputPath, band_path):
     LE = Latent Heat Flux [W/m2]
     """
     BI = H / LE
-    #BI[BI < 0] = 0.1
-    #BI[BI > 5] = 4.9
+    BI[BI < 0] = np.nan
+    BI[BI > 3] = np.nanmean(BI)
     savetif(BI, outputPath, band_path)
     return BI
 ######################################################################
@@ -1060,4 +1149,3 @@ def albedoLiang(b2, b4, b5, b6, b7, reference_band_path, outputPath):
     
     savetif(a, outputPath, reference_band_path)   
     return a
-

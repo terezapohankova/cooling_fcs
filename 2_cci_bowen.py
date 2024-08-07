@@ -1,4 +1,3 @@
-
 import math
 import os
 import sys
@@ -10,10 +9,9 @@ import time
 start_time = time.time()
 
 INPUT_FOLDER = r'/home/tereza/Documents/data/LANDSAT/RESULTS/clipped_bands'
-METEOROLOGY = r'aux_data/weather_2023_olomouc.csv'   
+METEOROLOGY = r'/home/tereza/Documents/gh_repos/cooling_fcs/aux_data/weather_2023_olomouc.csv'   
 HILLSHADE = r'aux_data/hillshade_olomouc_32633.tif'
 JSON_MTL_PATH = supportlib_v2.getfilepath(INPUT_FOLDER, 'MTL.json') #['root/snimky_L9_testovaci/LC09_L2SP_190025_20220518_20220520_02_T1/LC09_L2SP_190025_20220518_20220520_02_T1_MTL.json']
-
 
 OUTPUT_FOLDER = r'/home/tereza/Documents/data/LANDSAT/RESULTS'
 
@@ -21,7 +19,7 @@ FOLDERS = ['lst', 'vegIndices', 'radiation', 'preprocess', 'albedo', 'fluxes', '
 for folder in FOLDERS:
     os.makedirs(os.path.join(OUTPUT_FOLDER, folder), exist_ok=True)
 
-Z = 219
+Z = 650
 MEASURING_HEIGHT = 2
 BLENDING_HEIGHT = 200   
 AVG_VEG_METEOSTATION = 4 #average vegetation height around the meteostation
@@ -96,13 +94,11 @@ ORIGINAL_IMG = supportlib_v2.get_band_filepath(INPUT_FOLDER, '.TIF') #['root/sni
 
 for img in ORIGINAL_IMG:
     if img.endswith('.TIF'):
-        
         sensing_date = img.split('_')[5]
-        
         if sensing_date not in sensing_date_list:
             sensing_date_list.append(sensing_date)
 
-
+    
 """for jsonFile in JSON_MTL_PATH:
     for jsonFile in JSON_MTL_PATH:
         if 'L2SP' in jsonFile:
@@ -121,7 +117,7 @@ for jsonFile in JSON_MTL_PATH:
             sensing_date_list.append(sensDate)
         mtlJSONFile[sensDate] = loadJSON
 
-
+    
 # create output path for clipped images by pairing sensing date from JSON metadata file and sensing date on original images
 for inputBand in ORIGINAL_IMG:
     
@@ -130,7 +126,7 @@ for inputBand in ORIGINAL_IMG:
         if os.path.basename(inputBand).split('_')[4] == date: # if date on original input band equals date sensing date from json mtl, then append it to the list
             #pprint(os.path.join(OUTPUT_PATH, OUT_CLIP_FOLDER, date, 'clipped_' + os.path.basename(inputBand)))
             CLIPPED_IMG_PATHS.append(os.path.join(INPUT_FOLDER, date, os.path.basename(inputBand)))
-            
+        #pprint(os.path.basename(inputBand).split('_')[4])
         
 imgDict = {} # {sensingdate : {path : path, radiance : int ...} }
 
@@ -139,7 +135,7 @@ for inputBand in ORIGINAL_IMG:
     # if date on original input band equals date sensing date from json mtl, then append it to the list
     
     image_basename = os.path.basename(inputBand) # 'LC09_L1TP_190025_20220518_20220518_02_T1_B6_clipped.TIF'
-    
+   # pprint(image_basename)
 
     if 'B' in image_basename:
         image_name = image_basename.replace('.TIF','') #'LC09_L2SP_189026_20220612_20220614_02_T1_SR_B1'
@@ -157,11 +153,10 @@ for inputBand in ORIGINAL_IMG:
         clippedImgPath = os.path.join(INPUT_FOLDER, date, image_basename) 
      
         band_level_key = f'{band}_{image_level}' # 'B4_L2'
-        #pprint(band_level_key)
-        
       
         if date not in imgDict:    
             imgDict.setdefault(date, {})
+        
 
         imgDict[date][band_level_key] = {
             'clipped_path' : clippedImgPath,
@@ -178,16 +173,20 @@ for inputBand in ORIGINAL_IMG:
             }
 
 
+#pprint(imgDict)
+
 for date in sensing_date_list:
     pprint('============')
-    pprint(date)
+    #pprint(meteorologyDict)
     reference_img = imgDict[date]['B5_L2']['clipped_path']
     
-
+    
+    
     
     # from kg m-2 to g cm-2
-    water_vap_cm = (float(meteorologyDict[date]['total_col_vat_wap_kg']) / 10)
+    water_vap_cm = ((meteorologyDict[date]['total_col_vat_wap_kg']) / 10)
     ta_kelvin = meteorologyDict[date]['avg_temp'] + 273.15
+
     zenithAngle = supportlib_v2.zenithAngle(imgDict[date]['B2_L2']['sunElev'])
     inverseSE = supportlib_v2.dr(imgDict[date]['B2_L2']['dES'])
     
@@ -252,6 +251,9 @@ for date in sensing_date_list:
     p = supportlib_v2.atmPress(Z)
     pprint(f' atmPress : {p} + {date}')
 
+    rho = supportlib_v2.densityair(meteorologyDict[date]['atm_press'], ta_kelvin, meteorologyDict[date]['rel_hum'])
+    pprint(f' airDensitz : {rho} + {date}')
+
     psychro = supportlib_v2.psychroCons(p)
     pprint(f' psychro : {psychro} + {date}')
 
@@ -263,28 +265,29 @@ for date in sensing_date_list:
 
     ########## SATELLITE PARAMETERS ######################
     pprint(f"Calculating Brightness Temperature for {date}")
-    tbright_path = os.path.join(OUTPUT_FOLDER, FOLDERS[1], os.path.basename(reference_img.replace('B5.TIF', 'tbright.TIF')))
-    tbright = supportlib_v2.bt(imgDict[date]['B10_L1']['KELVIN_CONS_1'],
-                            imgDict[date]['B10_L1']['KELVIN_CONS_2'],
-                            imgDict[date]['B10_L1']['RADIANCE_ADD'],
-                            imgDict[date]['B10_L1']['RADIANCE_MULT'],
-                            tbright_path,
-                            imgDict[date]['B10_L1']['clipped_path'],
-                            reference_img)
     
     
+    #pprint(imgDict[date]['B10_L1']['clipped_path'])
     
     pprint(f"Calculating Sensor Radiance for {date}")
     sens_radiance_path = os.path.join(OUTPUT_FOLDER, FOLDERS[1], os.path.basename(reference_img.replace('B5.TIF', 'sens_redaince')))
-    sens_radiance = supportlib_v2.sensor_radiance(tbright, 
-                                                  imgDict[date]['B10_L1']['KELVIN_CONS_1'], 
-                                                  imgDict[date]['B10_L1']['KELVIN_CONS_2'],
+    sens_radiance = supportlib_v2.sensor_radiance(imgDict[date]['B10_L1']['RADIANCE_MULT'], 
+                                                  imgDict[date]['B10_L1']['clipped_path'],
+                                                  imgDict[date]['B10_L1']['RADIANCE_ADD'],
                                                   sens_radiance_path,
                                                   reference_img)
     
+    tbright_path = os.path.join(OUTPUT_FOLDER, FOLDERS[1], os.path.basename(reference_img.replace('B5.TIF', 'tbright.TIF')))
+    tbright = supportlib_v2.bt(imgDict[date]['B10_L1']['KELVIN_CONS_1'],
+                            imgDict[date]['B10_L1']['KELVIN_CONS_2'],
+                            sens_radiance,
+                            tbright_path,
+                            imgDict[date]['B10_L1']['clipped_path'],
+                            reference_img)
 
     gamma_cal = supportlib_v2.gamma(tbright, B_GAMMA, sens_radiance)
     delta_cal = supportlib_v2.delta(tbright, B_GAMMA, gamma_cal, sens_radiance)
+
 
     pprint(f"Calculating NDVI for {date}")
 
@@ -314,6 +317,7 @@ for date in sensing_date_list:
     pprint(f"Calculating Albedo for {date}")
     bands = ['B2', 'B3', 'B4', 'B5', 'B6', 'B7']
     esun_values = [esun[band] for band in bands]
+    
 
     lb_values = {}
 
@@ -338,7 +342,8 @@ for date in sensing_date_list:
   
     pb = {band: supportlib_v2.pb(esun[band], esun_sum) for band in bands}
     albedo_toa = sum(supportlib_v2.albedo_toa_band(pb[band], reflectivity[band]) for band in bands)
-
+    supportlib_v2.savetif(albedo_toa, os.path.join(OUTPUT_FOLDER, FOLDERS[4], os.path.basename(reference_img.replace('B5.TIF', 'albedo_toa.TIF'))),
+                          reference_img)
     albedo_path = os.path.join(OUTPUT_FOLDER, FOLDERS[4], os.path.basename(reference_img.replace('B5.TIF', 'albedo.TIF')))
     albd = supportlib_v2.albedo(albedo_toa, transmis_atm, albedo_path, reference_img)
 
@@ -353,7 +358,7 @@ for date in sensing_date_list:
 
     # Calculate Shortwave Radiation Inwards
     rad_short_in = supportlib_v2.shortin(SOLAR_CONSTANT, zenithAngle, inverseSE, transmis_atm)
-    pprint(rad_short_in)
+    #pprint(rad_short_in)
     # Calculate Shortwave Radiation Outwards
     rad_short_out_path = os.path.join(OUTPUT_FOLDER,FOLDERS[2], os.path.basename(reference_img.replace('B5.TIF', 'RadShortOut.TIF')))
     rad_short_out = supportlib_v2.shortout(albd, rad_short_in, reference_img, rad_short_out_path)
@@ -385,9 +390,48 @@ for date in sensing_date_list:
     #rah_outputpath = os.path.join(OUTPUT_FOLDER,FOLDERS[5], os.path.basename(imgDict[date]['B5_L2']['clipped_path']).replace('B5.TIF', 'friction_velocity.TIF'))
     r_ah = supportlib_v2.rah(0.1, 2.0, fric_vel_pixel)
 
+
     fraction_path = os.path.join(OUTPUT_FOLDER,FOLDERS[5], os.path.basename(reference_img.replace('B5.TIF', 'etf.TIF')))
     fraction = supportlib_v2.ef(lst, ndvi, fraction_path, reference_img)
 
+    le_path = os.path.join(OUTPUT_FOLDER,FOLDERS[2], os.path.basename(reference_img.replace('B5.TIF', 'le.TIF')))
+    #le = supportlib_v2.le(fraction, net_radiation, G_flux, 
+                    #le_path, reference_img)
+    
+    h_path = os.path.join(OUTPUT_FOLDER,FOLDERS[2], os.path.basename(reference_img.replace('B5.TIF', 'h.TIF')))
+    #h = supportlib_v2.sensHFlux(rho, lst, r_ah, ta_kelvin, h_path, reference_img)
+    #h = supportlib_v2.H(le, net_radiation, G_flux, h_path, band_path)
+
+    bowen_path = os.path.join(OUTPUT_FOLDER,FOLDERS[6], os.path.basename(reference_img.replace('B5.TIF', 'bowen.TIF')))
+    #bowen_ratio = supportlib_v2.bowenIndex(h, le, bowen_path, reference_img)
+    
+    tr = supportlib_v2.tr(ta_kelvin)
+    e_ast = supportlib_v2.e_aster(1015.15, tr)
+    pt_delta = supportlib_v2.delta_pt(e_ast, ta_kelvin, tr)
+
+    
+
+
+    phi_max_path = os.path.join(OUTPUT_FOLDER,FOLDERS[2], os.path.basename(reference_img.replace('B5.TIF', 'phi_max.TIF')))
+    phi_max = supportlib_v2.phi_max(ndvi, lst, 10, phi_max_path, band_path) 
+    
+    phi_minimum = supportlib_v2.phi_min(ndvi, 0, 10, phi_max)
+
+    phi = supportlib_v2.interpolate_phi(lst, ndvi, phi_minimum, phi_max)
+
+    le = supportlib_v2.le(phi, net_radiation, G_flux, pt_delta, psychro, le_path, band_path)
+    #h = net_radiation - le - G_flux
+    ra_path = os.path.join(OUTPUT_FOLDER,FOLDERS[2], os.path.basename(reference_img.replace('B5.TIF', 'ra.TIF')))
+    
+    ra = supportlib_v2.ra(rho, lst_C, meteorologyDict[date]['avg_temp'], e0, es, psychro, net_radiation, ra_path, band_path)
+    
+    h = supportlib_v2.sensHFlux(rho, lst, ra, ta_kelvin, h_path, band_path)
+    supportlib_v2.savetif(h, h_path, band_path)
+    bowen = supportlib_v2.bowenIndex(h, le, bowen_path, band_path)
+
+
+    sys.exit()
+    
     pmet0_path = os.path.join(OUTPUT_FOLDER,FOLDERS[6], os.path.basename(reference_img.replace('B5.TIF', 'et0_day_mm.TIF')))
     pm_et0 = supportlib_v2.ET0(e0, dealta_es, meteorologyDict[date]['wind_sp'], es, G_flux_MJ, psychro, net_radiation_MJ, meteorologyDict[date]['avg_temp'], pmet0_path, reference_img)
 
@@ -403,14 +447,11 @@ for date in sensing_date_list:
     eti_path = os.path.join(OUTPUT_FOLDER,FOLDERS[6], os.path.basename(reference_img.replace('B5.TIF', 'eti.TIF')))
     eti = supportlib_v2.ETI(kc_lai, pm_et0, eti_path, reference_img)
 
-    cci_path = os.path.join(OUTPUT_FOLDER,FOLDERS[6], os.path.basename(reference_img.replace('B5.TIF', 'cci.TIF')))
-    cci = supportlib_v2.CCi(albd, eti, HILLSHADE, cci_path, reference_img)
+    #cci_path = os.path.join(OUTPUT_FOLDER,FOLDERS[6], os.path.basename(reference_img.replace('B5.TIF', 'cci.TIF')))
+    #cci = supportlib_v2.CCi(albd, eti, HILLSHADE, cci_path, reference_img)
 
     ETa_path = os.path.join(OUTPUT_FOLDER,FOLDERS[6], os.path.basename(reference_img.replace('B5.TIF', 'eta_ssebop.TIF')))
     ETa = supportlib_v2.ea(pm_et0, fraction, ndvi, ETa_path, reference_img)
 
 end = time.time()
-print("The time of execution of above program is :",
-      (end-start_time))    
-    
-    
+print("The time of execution of above program is :", (end-start_time))    
