@@ -13,12 +13,16 @@ import supportlib_v2
 import time
 start_time = time.time()
 
-AREA_MASK = r'aux_data/water_area_mask.gpkg'
-INPUT_FOLDER = r'/home/tereza/Documents/LANDSAT_2023'
 OUTPUT_PATH = r'/home/tereza/Documents/data/LANDSAT/RESULTS'
+
+INPUT_FOLDER = r'/media/tereza/e69216f4-59db-4b9c-a9ea-eec828d59ee5/home/tereza/Documents/LANDSAT_2023'
+JSON_MTL_PATH = supportlib_v2.getfilepath(INPUT_FOLDER, 'MTL.json') #['root/snimky_L9_testovaci/LC09_L2SP_190025_20220518_20220520_02_T1/LC09_L2SP_190025_20220518_20220520_02_T1_MTL.json']
+AREA_MASK = r'/home/tereza/Documents/gh_repos/cooling_fcs/aux_data/olomouc_32633.gpkg'
+
 
 OUT_CLIP_FOLDER = os.path.join(OUTPUT_PATH,'clipped_bands')
 os.makedirs(OUT_CLIP_FOLDER, exist_ok = True)
+
 
 # get paths to images and jsons
 JSON_MTL_PATH = supportlib_v2.get_band_filepath(INPUT_FOLDER, 'MTL.json') #['root/snimky_L9_testovaci/LC09_L2SP_190025_20220518_20220520_02_T1/LC09_L2SP_190025_20220518_20220520_02_T1_MTL.json']
@@ -46,7 +50,8 @@ for jsonFile in JSON_MTL_PATH:
                 os.makedirs(os.path.join(OUT_CLIP_FOLDER, sensDate))
         mtlJSONFile[sensDate] = loadJSON   
         shutil.copy(jsonFile, os.path.join(OUT_CLIP_FOLDER, sensDate))
-    
+
+
 # create output path for clipped images by pairing sensing date from JSON metadata file and sensing date on original images
 for inputBand in ORIGINAL_IMG:
     for date in sensingDate:
@@ -66,7 +71,7 @@ for inputBand in ORIGINAL_IMG:
         date = image_basename.split('_')[3]
         clippedImgPath = os.path.join(OUT_CLIP_FOLDER, date, 'clipped_' + (os.path.basename(inputBand)))
         supportlib_v2.clipimage(AREA_MASK, inputBand, clippedImgPath, True, False)
-        pprint(clippedImgPath)
+        #pprint(clippedImgPath)
     
         
     elif 'B2' in image_basename or \
@@ -78,7 +83,8 @@ for inputBand in ORIGINAL_IMG:
         clippedImgPath = os.path.join(OUT_CLIP_FOLDER, date, 'clipped_' + (os.path.basename(inputBand))) # '/home/tereza/Documents/testy_VSC/clipped_bands/20220612/clipped_LC09_L2SP_189026_20220612_20220614_02_T1_SR_B1.TIF'                                                    
         supportlib_v2.clipimage(AREA_MASK, inputBand, clippedImgPath, True, False)
 
-        pprint(clippedImgPath)
+      
+    
 ### create dictionary for QA_PIXEL band that will get the frequency of each pixel value for each sensing date
 
 
