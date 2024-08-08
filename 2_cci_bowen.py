@@ -406,9 +406,9 @@ for date in sensing_date_list:
     #bowen_ratio = supportlib_v2.bowenIndex(h, le, bowen_path, reference_img)
     
     tr = supportlib_v2.tr(ta_kelvin)
-    e_ast = supportlib_v2.e_aster(1015.15, tr)
+    e_ast = supportlib_v2.e_aster(101.515, tr)
     pt_delta = supportlib_v2.delta_pt(e_ast, ta_kelvin, tr)
-
+ 
     
 
 
@@ -417,22 +417,26 @@ for date in sensing_date_list:
     
     phi_minimum = supportlib_v2.phi_min(ndvi, 0, 10, phi_max)
 
-    phi = supportlib_v2.interpolate_phi(lst, ndvi, phi_minimum, phi_max)
+    #phi = supportlib_v2.interpolate_phi(lst, ndvi, phi_minimum, phi_max)
+    phi = supportlib_v2.phi_test(ndvi, lst)
+    phi_1 = ((dealta_es * meteorologyDict[date]['max_temp']) - (dealta_es * meteorologyDict[date]['avg_temp'])) / \
+    ((dealta_es * meteorologyDict[date]['max_temp']) - (dealta_es * meteorologyDict[date]['min_temp']))
 
-    le = supportlib_v2.le(phi, net_radiation, G_flux, pt_delta, psychro, le_path, band_path)
-    #h = net_radiation - le - G_flux
-    ra_path = os.path.join(OUTPUT_FOLDER,FOLDERS[2], os.path.basename(reference_img.replace('B5.TIF', 'ra.TIF')))
+   
     
-    ra = supportlib_v2.ra(rho, lst_C, meteorologyDict[date]['avg_temp'], e0, es, psychro, net_radiation, ra_path, band_path)
+    ef_path = os.path.join(OUTPUT_FOLDER,FOLDERS[2], os.path.basename(reference_img.replace('B5.TIF', 'ef.TIF')))
+    EF = supportlib_v2.ef_2(albd, lst, ef_path, band_path)
     
-    h = supportlib_v2.sensHFlux(rho, lst, ra, ta_kelvin, h_path, band_path)
+    le = EF * (net_radiation - G_flux)
+    h = (1 - EF) * (net_radiation - G_flux)
+    supportlib_v2.savetif(le, le_path, band_path)
     supportlib_v2.savetif(h, h_path, band_path)
     bowen = supportlib_v2.bowenIndex(h, le, bowen_path, band_path)
 
 
-    sys.exit()
     
-    pmet0_path = os.path.join(OUTPUT_FOLDER,FOLDERS[6], os.path.basename(reference_img.replace('B5.TIF', 'et0_day_mm.TIF')))
+    
+    """pmet0_path = os.path.join(OUTPUT_FOLDER,FOLDERS[6], os.path.basename(reference_img.replace('B5.TIF', 'et0_day_mm.TIF')))
     pm_et0 = supportlib_v2.ET0(e0, dealta_es, meteorologyDict[date]['wind_sp'], es, G_flux_MJ, psychro, net_radiation_MJ, meteorologyDict[date]['avg_temp'], pmet0_path, reference_img)
 
     savi_path = os.path.join(OUTPUT_FOLDER,FOLDERS[1], os.path.basename(reference_img.replace('B5.TIF', 'savi.TIF')))
@@ -451,7 +455,7 @@ for date in sensing_date_list:
     #cci = supportlib_v2.CCi(albd, eti, HILLSHADE, cci_path, reference_img)
 
     ETa_path = os.path.join(OUTPUT_FOLDER,FOLDERS[6], os.path.basename(reference_img.replace('B5.TIF', 'eta_ssebop.TIF')))
-    ETa = supportlib_v2.ea(pm_et0, fraction, ndvi, ETa_path, reference_img)
+    ETa = supportlib_v2.ea(pm_et0, fraction, ndvi, ETa_path, reference_img)"""
 
 end = time.time()
 print("The time of execution of above program is :", (end-start_time))    

@@ -454,24 +454,24 @@ def	atmemis(Ta_K):
 
 ######################################################################
 
-def ra(airDensity, LST, Ta, eo, es, psychro, Rn, reference_band, OutputPath, cp = 1013):
+"""def ra(airDensity, LST, Ta, eo, es, psychro, Rn, reference_band, OutputPath, cp = 1013):
     
     # Aerodynamic Resistance
     # via https://www.posmet.ufv.br/wp-content/uploads/2016/09/MET-479-Waters-et-al-SEBAL.pdf
 
-    """airDensity = Density of Air [kg/m3]
+    airDensity = Density of Air [kg/m3]
     LST = Land Surface Temperature [˚C]
     Ta = Air Temperature [˚C]
     eo = Partial Water Vapour Pressure [kPa]
     es = Saturated vapour pressure [kPa]
     psychro = Psychrometric constant [kPa/˚C]
     Rn = Net Energy Budget [W/m2]
-    cp = Specific heat at constant pressure """
+    cp = Specific heat at constant pressure
 
     
     ra = (airDensity * cp * ((LST - Ta) + ((eo - es) / psychro))) / Rn
-    #savetif(ra, OutputPath, reference_band)
-    return ra 
+    savetif(ra, OutputPath, reference_band)
+    return ra """
 
 """def ra_2(h, u, reference_band, outputPath, zh = 2, zm = 2 ,k = 0.41):
 
@@ -491,8 +491,9 @@ def ra(airDensity, LST, Ta, eo, es, psychro, Rn, reference_band, OutputPath, cp 
     ra_2 = (k **2) * u
 
     ra = ra_1 / ra_2
+    pprint(ra)
 
-    savetif(ra, outputPath, reference_band)
+    #savetif(ra, outputPath, reference_band)
     return ra"""
 
 def z0m(vegHeight, outputPath):
@@ -593,7 +594,7 @@ def H(LE, Rn, G, outputPath, band_path):
 ######################################################################
 
 def tr(air_temp_k):
-    return 1 - 373.15 / air_temp_k
+    return 1 - (373.15 / air_temp_k)
 
 def e_aster(Po, Tr):
     return Po * np.exp((13.3185*Tr) - (1.976*(Tr**2)) - (0.6445*(Tr**3)) - (0.1299*(Tr**4)))
@@ -607,7 +608,8 @@ def le(phi, Rn, G, delta_pt, psychro, outputPath, band_path):
     # Latent HEat Flux [W/m2]
     # via Baasriansen, 2000 (BASTIAANSSEN, W. G. M. SEBAL - based sensible and latent heat fluxes in the irrigated Gediz Basin, Turkey. Journal of Hydrology, v.229, p.87-100, 2000.)
 
-    LE = phi * (Rn - G * (delta_pt / (delta_pt + psychro)))
+    LE = phi * ((Rn - G) * (delta_pt / (delta_pt + psychro)))
+
     savetif(LE, outputPath, band_path)
     return LE
 
@@ -635,7 +637,33 @@ def ef(lst, ndvi, output_path, refernce_img):
 
     return evapofract
 
+def ef_2(albedo, lst, output_path, referecnce_band):
+    
+    # Initialize arrays for LST max and min
+    lst_max = np.full(albedo.shape, np.nan)
+    lst_min = np.full(albedo.shape, np.nan)
 
+    # Determine LSTmax and LSTmin for different albedo bins
+    albedo_bins = np.linspace(np.min(albedo), np.max(albedo), 100)
+
+    for i in range(len(albedo_bins) - 1):
+        mask = (albedo >= albedo_bins[i]) & (albedo < albedo_bins[i + 1])
+        if np.any(mask):
+            lst_max[mask] = np.nanmax(lst[mask])
+            lst_min[mask] = np.nanmin(lst[mask])
+
+    # Compute normalized LST
+    lst_max[np.isnan(lst_max)] = np.nanmax(lst)  # replace NaNs with global max
+    lst_min[np.isnan(lst_min)] = np.nanmin(lst)  # replace NaNs with global min
+
+    t_prime = (lst - lst_min) / (lst_max - lst_min)
+    t_prime = np.clip(t_prime, 0, 1)  # ensure t_prime is within [0, 1]
+
+    # Calculate evaporative fraction
+    ef = 1 - t_prime
+    savetif(ef, output_path, referecnce_band)
+
+    return ef
 
 def phi_max(ndvi, lst, num_intervals, reference_band, outputPath, phi_min_global=0):
     
@@ -667,7 +695,7 @@ def phi_max(ndvi, lst, num_intervals, reference_band, outputPath, phi_min_global
     #global_phi[np.isnan(global_phi)] = 0
     
     if np.any(phi_max):
-        pprint('phi_max')
+        #pprint('phi_max')
         savetif(phi_max, r'/home/tereza/Documents/data/LANDSAT/RESULTS/vegIndices/phi_max.TIF', 
                 r'/home/tereza/Documents/data/LANDSAT/RESULTS/vegIndices/clipped_LC09_L2SP_190025_20230926_20230928_02_T1_SR_ndvi.TIF')
     else:
@@ -703,7 +731,7 @@ def interpolate_phi(lst, ndvi, phi_min, phi_max):
     lst_norm = (lst - np.nanmin(lst)) / (np.nanmax(lst) - np.nanmin(lst))
     
     ndvi_norm = (ndvi - np.nanmin(ndvi)) / (np.nanmax(ndvi) - np.nanmin(ndvi))
-    pprint(np.nanmean(ndvi_norm))
+    #pprint(np.nanmean(ndvi_norm))
     
     # Assign weights (adjust weights based on desired relationship)
     weight_lst = 1 - lst_norm
@@ -721,6 +749,38 @@ def interpolate_phi(lst, ndvi, phi_min, phi_max):
 
     return phi
 
+def phi_test(ndvi, temperature, num_intervals=15):
+    
+     # Step 1: Calculate global \phi_{\min} and \phi_{\max}
+    phi_min = np.nanmin(ndvi)  # \phi_{\min} is set to 0 for the driest bare soil pixel
+    global_phi_max = 1.26  # \phi_{\max} is the highest NDVI value in the image
+
+    # Step 2: Initialize \phi_{\max} array
+    phi_max_values = np.zeros_like(ndvi)
+
+    # Step 3: Segment NDVI into intervals and determine \phi_{\max} for each interval
+    ndvi_intervals = np.linspace(np.nanmin(ndvi), 1.26, num=num_intervals)
+    for i in range(len(ndvi_intervals) - 1):
+        # Create a mask to identify pixels within the current NDVI interval
+        mask = (ndvi >= ndvi_intervals[i]) & (ndvi < ndvi_intervals[i + 1])
+        if np.any(mask):
+            # Find the pixel with the lowest temperature within this NDVI interval
+            lowest_temp_pixel = np.argmin(temperature[mask])
+            # Convert the flat index to the corresponding index in the masked array
+            masked_indices = np.where(mask)
+            lowest_temp_index = (masked_indices[0][lowest_temp_pixel], masked_indices[1][lowest_temp_pixel])
+            interval_phi_max = ndvi[lowest_temp_index]
+            # Assign the \phi_{\max} value for pixels in this interval
+            phi_max_values[mask] = interval_phi_max
+
+    # Step 4: Interpolate \phi values for each pixel
+    phi_interpolated = phi_min + (ndvi / global_phi_max) * (phi_max_values - phi_min)
+    if np.any(phi_interpolated):
+        savetif(phi_interpolated, r'/home/tereza/Documents/data/LANDSAT/RESULTS/vegIndices/phi.TIF', 
+                r'/home/tereza/Documents/data/LANDSAT/RESULTS/vegIndices/clipped_LC09_L2SP_190025_20230926_20230928_02_T1_SR_ndvi.TIF')
+    else:
+        pprint('None')
+    return phi_interpolated
 
 def ea(et0, ef, ndvi, outputPath, reference_img):
 
@@ -841,8 +901,8 @@ def ecc_corr(doy):
 def shortin(solar_cons, solar_zenith_angle, inverte_SE, atm_trans):
     # https://posmet.ufv.br/wp-content/uploads/2017/04/MET-479-Waters-et-al-SEBAL.pdf
 
-    pprint("cos")
-    pprint((math.cos(math.radians(solar_zenith_angle))))
+    #pprint("cos")
+    #pprint((math.cos(math.radians(solar_zenith_angle))))
     
     return solar_cons * math.cos(math.radians(solar_zenith_angle)) * inverte_SE * atm_trans
 
@@ -945,11 +1005,13 @@ def bowenIndex(H, LE, outputPath, band_path):
     # Bowen Index
     # via https://daac.ornl.gov/FIFE/Datasets/Surface_Flux/Bowen_Ratio_USGS.html
     H = Sensible Heat Flux [W/m2]
-    LE = Latent Heat Flux [W/m2]
+    LE =
+     Latent Heat Flux [W/m2]
     """
+    #warnings.filterwarnings('ignore')
     BI = H / LE
-    BI[BI < 0] = np.nan
-    BI[BI > 3] = np.nanmean(BI)
+    #BI[BI < 0] = np.nan
+    BI = np.where(BI > 5, np.nan, BI)
     savetif(BI, outputPath, band_path)
     return BI
 ######################################################################
