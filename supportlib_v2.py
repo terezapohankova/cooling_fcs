@@ -4,7 +4,6 @@ import rasterio
 import rasterio.mask
 from pprint import pprint
 import numpy as np
-#from sympy import Le, ln
 import tifffile as tf
 import rasterio as rio
 from affine import Affine
@@ -17,14 +16,6 @@ import json
 import matplotlib.pyplot as plt
 from scipy.stats import linregress
 from scipy import stats
-
-
-#import earthpy.spatial as es
-"""import fiona
-
-with fiona.open(r'/home/tereza/Documents/SNIMKY/cernovice_2022/cernovice_bb.gpkg') as layer:
-    for feature in layer:
-        pprint(feature['geometry'])"""
 
 
 
@@ -134,13 +125,6 @@ def clipimage(maskPath, inputBand, outImgPath, cropping = True, filling = True, 
         pprint(f"vystupni cesta: {outImgPath}")
         dest.write(out_image)
     
-    """pprint(f"maska: {maskPath}")
-    pprint(f"vstupni data: {inputBand}")
-    pprint(f"vystupni cesta: {outImgPath}")
-
-    command = f"gdalwarp -cutline {maskPath} -crop_to_cutline -dstnodata NoData {inputBand} {outImgPath}"
-    os.system(command)"""
-
    
     return 
 
@@ -171,9 +155,6 @@ def savetif(img_new, outputPath, image_georef, epsg = 'EPSG:32633'):
     new_dataset.write(img_new, 1)
     new_dataset.close()
  
-
-
-    
     return
 
 
@@ -231,6 +212,9 @@ def scatterplot_2d(x, y, var1, var2, pathout):
     #plt.show()
     return
 
+
+def W_to_MJday(variable):
+    return ((variable / 10 ** 6)) * 86400
 ############################################################################################################################################
 #   ALBEDO                                                                                                                                 #
 # via https://www.scielo.br/j/rbeaa/a/sX6cJjNXWMfHQ5p4h33B8Zz/?lang=en&format=pdf                                                          #
@@ -298,15 +282,15 @@ def reflectivity_band(lb, esun_band, dr, band_path, zenithAngle, outputPath):
 
 ######################################################################
 
-def kb(rb, lb, dr, zenithAngle, outputPath, band_path):
-    """
+"""def kb(rb, lb, dr, zenithAngle, outputPath, band_path):
+    
     # Solar Constant [W/m2]
 
     rb = Band reflectance
     lb = Radiance of each pixel [W/m2]   
     dr = correction of the eccentricity of the terrestrial orbit
 
-    """
+    
     
     #rb_band = np.array(tf.imread(rb))
     #lb_band = np.array(tf.imread(lb))
@@ -315,7 +299,7 @@ def kb(rb, lb, dr, zenithAngle, outputPath, band_path):
     kb[kb < 0] = 0
 
     savetif(kb, outputPath, band_path) 
-    return kb
+    return kb"""
 
 ######################################################################
 
@@ -351,11 +335,8 @@ def albedo(toaplanet, atm_trans, outputPath, band_path):
     Toc = Atmospheric transmittance in the solar radiation domain
     """
     albedo = (toaplanet - 0.03) / (atm_trans ** 2)
-
-    #albedo[albedo < 0] = 0.1
+    albedo = np.where(albedo < 0, np.nan, albedo)
     
-    #albedo[albedo > 1] = 0.99
-
     savetif(albedo, outputPath, band_path)
     return albedo
 
@@ -376,7 +357,7 @@ def e0(T):
 
 ######################################################################
 
-def es(Tamax, Tamin, Ta):
+def es(Ta):
     """
     # Saturated Vapour Pressure [kPa]
     # via https://www.fao.org/3/x0490e/x0490e07.htm#atmospheric%20pressure%20(p)
@@ -454,142 +435,44 @@ def	atmemis(Ta_K):
 
 ######################################################################
 
-"""def ra(airDensity, LST, Ta, eo, es, psychro, Rn, reference_band, OutputPath, cp = 1013):
-    
-    # Aerodynamic Resistance
-    # via https://www.posmet.ufv.br/wp-content/uploads/2016/09/MET-479-Waters-et-al-SEBAL.pdf
-
-    airDensity = Density of Air [kg/m3]
-    LST = Land Surface Temperature [˚C]
-    Ta = Air Temperature [˚C]
-    eo = Partial Water Vapour Pressure [kPa]
-    es = Saturated vapour pressure [kPa]
-    psychro = Psychrometric constant [kPa/˚C]
-    Rn = Net Energy Budget [W/m2]
-    cp = Specific heat at constant pressure
-
-    
-    ra = (airDensity * cp * ((LST - Ta) + ((eo - es) / psychro))) / Rn
-    savetif(ra, OutputPath, reference_band)
-    return ra """
-
-"""def ra_2(h, u, reference_band, outputPath, zh = 2, zm = 2 ,k = 0.41):
-
-    
-    h = average crop height [m]
-    d = effective crop height [m]
-    zom = the roughness length governing momentum transfer [m]
-    zoh = length governing transfer of heat and vapour [m]
-    u = wind speed [m/s]
-    zm, zh -> # standardized height for wind speed, temperature and humidity
-    
-    #h = np.array(tf.imread(h))
-    d = (2/3) * h
-    zom = 0.123 * h
-    zoh = 0.1 * zom
-    ra_1 = np.log((zm - d)/ zom) * np.log((zh - d)/ zoh)
-    ra_2 = (k **2) * u
-
-    ra = ra_1 / ra_2
-    pprint(ra)
-
-    #savetif(ra, outputPath, reference_band)
-    return ra"""
-
-def z0m(vegHeight, outputPath):
-
+def z0m(vegHeight, outputPath, reference_img):
     """
     # Roughness length governing momentum transfer [m]
-
+    # https://posmet.ufv.br/wp-content/uploads/2017/04/MET-479-Waters-et-al-SEBAL.pdf
     vegHeigth = height of vegetation
-    """
+    """    
 
-    
-    z0m = 0.123 * vegHeight
+    z0m = 0.123 * np.array(tf.imread(vegHeight))
 
-    #savetif(z0m, outputPath, vegHeight)
+    savetif(z0m, outputPath, reference_img)
     return z0m
 
-def u_fric_vel_measure(wind_sp, measure_height, momentum_z0m ,k = 0.41):  
-    u = (k * wind_sp) / np.log(measure_height / momentum_z0m)
-    return u 
+def wind_speed_blending(wind_ref_h, blending_height, momentum_z0m, ref_height, outputpath, reference_img):
+    wind_bl_hg = wind_ref_h * np.log(blending_height / momentum_z0m) / (np.log(ref_height / momentum_z0m))
+    wind_bl_hg = np.where(wind_bl_hg < 0, np.nanmean(wind_bl_hg), wind_bl_hg)
 
-def wind_speed_blending(blending_height, momentum_z0m, friction_vel_measure, k = 0.41):
-    u = friction_vel_measure * ((np.log(blending_height/momentum_z0m)) / k)
-    return u
+    savetif(wind_bl_hg, outputpath, reference_img)
+    return wind_bl_hg
 
-def u_fric_vel_pix(blend_height, wind_speed_blend, momentum_z0m, k = 0.41):
+def u_fric_vel(u_bl_heigh, blend_height, momentum_z0m, outputpath, reference_img, k = 0.41):
+    u_ast = (k * u_bl_heigh) / np.log(blend_height / momentum_z0m)
+    u_ast = np.where(u_ast < 0, np.nanmean(u_ast), u_ast)
 
-    u = (k * wind_speed_blend) / (np.log(blend_height / momentum_z0m))
-    return u
+    savetif(u_ast, outputpath, reference_img)
+    return u_ast
     
-def rah(z1, z2, fric_vel_pix, k = 0.41):
-    r_ah = (np.log(z2 / z1) ) / (fric_vel_pix / k)
+def rah(z1, z2, fric_vel, outputpath, reference_img, k = 0.41):
+    r_ah = (np.log(z2 / z1) ) / (fric_vel * k)
+    r_ah[np.isnan(r_ah)] = np.nanmean(r_ah)
+    
+    savetif(r_ah, outputpath, reference_img)
     return r_ah
+
+
 ######################################################################
 def slopeVapPress(Ta):
     slopeVapPress = round((4098 * 0.6108 * 2.7183 ** ((17.27 * Ta)/(Ta+237.3)) / (Ta + 237.3) ** 2),3)
     return slopeVapPress
-
-
-############################################################################################################################################
-#   FLUXES
-############################################################################################################################################
-
-def soilGFlux(LST_C, albedo, ndvi, Rn, outputPath, reference_path):
-    """
-    # Soil/Ground Heat Flux [W/m2]
-    # via BASTIAANSSEN, 2000 (BASTIAANSSEN, W. G. M. SEBAL - based sensible and latent heat fluxes in the irrigated Gediz Basin, Turkey. Journal of Hydrology, v.229, p.87-100, 2000.)
-
-    LST = Land Surface Temperature [°C]
-    albedo = Albedo [-]
-    ndvi = Normal Differential Vegetation Index [-]
-    Rn - Net ENergy Budget [W/m-2]
-    """
-
-    G = LST_C / albedo * (0.0038 * albedo + 0.0074 * albedo ** 2) * (1 - 0.98 * ndvi ** 4) * Rn
-    
-
-    G = np.where(ndvi < 0, Rn * 0.5, G)  #assume water
-    G = np.where((LST_C < 4) & (albedo > 0.45), Rn * 0.5, G) #assume snow
-
-    
-
-    savetif(G, outputPath, reference_path)
-    return G
-
-######################################################################
-
-def sensHFlux(airDens, LST_K, ra, Ta_K, outputPath, reference_img, cp = 0.001013):
-    
-    # Sensible Heat Flux
-    # via
-
-    """LST = Land Surface Temperature [˚C]
-    ra = Air Resistence [s/m]
-    Ta = Air Temperature [˚C]
-    cp = Specific heat at constant pressure [MJ/kg/°C]
-    airDens = Density of Air [kg/m3]
-    LST_K = Land Surface Temperature [K]
-    Ta_K = Air Temperature [K]"""
-    
-    
-
-    H = (airDens * cp * (LST_K - Ta_K)) / ra
-    savetif(H, outputPath, reference_img)
-    return H
-
-def H(LE, Rn, G, outputPath, band_path):
-    # gradient method
-
-    #LE = np.array(tf.imread(LE))
-    #Rn = np.array(tf.imread(Rn))
-    #G = np.array(tf.imread(G))
-
-    h = Rn - G - LE
-    savetif(h, outputPath, band_path)
-
-    return h
 
 ######################################################################
 
@@ -603,67 +486,20 @@ def delta_pt(e_ast, air_temp_k, Tr):
     return ((373.15 * e_ast) / (air_temp_k**2)) * (13.3185 - (3.952*Tr) - (1.9335*(Tr**2)) - (0.5196*(Tr**3)))
 
 
-def le(phi, Rn, G, delta_pt, psychro, outputPath, band_path):
-    
-    # Latent HEat Flux [W/m2]
-    # via Baasriansen, 2000 (BASTIAANSSEN, W. G. M. SEBAL - based sensible and latent heat fluxes in the irrigated Gediz Basin, Turkey. Journal of Hydrology, v.229, p.87-100, 2000.)
 
-    LE = phi * ((Rn - G) * (delta_pt / (delta_pt + psychro)))
-
-    savetif(LE, outputPath, band_path)
-    return LE
 
 ######################################################################
 
 def ET0(e0, SatVapCurve, WindSp, es, G, psych, Rn, Ta, outputPath, band_path):
     VPD = e0-es
-    ET0_daily = ((0.408 * SatVapCurve * (Rn - G) + psych * (900 / (Ta + 273.15)) 
-                 * WindSp * VPD)/(SatVapCurve + psych * (1 + 0.34 * WindSp))) 
-    
+    ET0_daily = ((0.408 * SatVapCurve * (Rn - G) + psych * (90 / (Ta + 273.15)) * WindSp * VPD) / (SatVapCurve + psych * (1 + 0.34 * WindSp))) 
+    numerator = 0.408 * (Rn - G) + psych * 900 / (Ta + 273) * WindSp * (es - e0)
+    denominator = SatVapCurve + psych * (1 + 0.34 * WindSp)
+
+    #ET0_daily = numerator / denominator
     savetif(ET0_daily, outputPath, band_path)
     return ET0_daily
 
-
-def ef(lst, ndvi, output_path, refernce_img):
-
-    ndvi = np.where(ndvi > 0.05, ndvi, np.nan)
-    Thot = np.nanmin(ndvi) + np.nanmax(lst)
-    Tcold = np.nanmax(ndvi) + np.nanmin(lst)
-    evapofract = (Thot - lst) / (Thot - Tcold)
-
-    evapofract = np.where(evapofract == np.nan, np.nanmean(evapofract), evapofract )
-
-    savetif(evapofract, output_path, refernce_img)
-
-    return evapofract
-
-def ef_2(albedo, lst, output_path, referecnce_band):
-    
-    # Initialize arrays for LST max and min
-    lst_max = np.full(albedo.shape, np.nan)
-    lst_min = np.full(albedo.shape, np.nan)
-
-    # Determine LSTmax and LSTmin for different albedo bins
-    albedo_bins = np.linspace(np.min(albedo), np.max(albedo), 100)
-
-    for i in range(len(albedo_bins) - 1):
-        mask = (albedo >= albedo_bins[i]) & (albedo < albedo_bins[i + 1])
-        if np.any(mask):
-            lst_max[mask] = np.nanmax(lst[mask])
-            lst_min[mask] = np.nanmin(lst[mask])
-
-    # Compute normalized LST
-    lst_max[np.isnan(lst_max)] = np.nanmax(lst)  # replace NaNs with global max
-    lst_min[np.isnan(lst_min)] = np.nanmin(lst)  # replace NaNs with global min
-
-    t_prime = (lst - lst_min) / (lst_max - lst_min)
-    t_prime = np.clip(t_prime, 0, 1)  # ensure t_prime is within [0, 1]
-
-    # Calculate evaporative fraction
-    ef = 1 - t_prime
-    savetif(ef, output_path, referecnce_band)
-
-    return ef
 
 def phi_max(ndvi, lst, num_intervals, reference_band, outputPath, phi_min_global=0):
     
@@ -1014,6 +850,189 @@ def bowenIndex(H, LE, outputPath, band_path):
     BI = np.where(BI > 5, np.nan, BI)
     savetif(BI, outputPath, band_path)
     return BI
+
+#########################################################
+################### S-SEBI functions ###################
+#########################################################
+
+def ef_ssebi(albedo, lst, output_path, referecnce_band):
+    
+    # Initialize arrays for LST max and min
+    lst_max = np.full(albedo.shape, np.nan)
+    lst_min = np.full(albedo.shape, np.nan)
+
+    # Determine LSTmax and LSTmin for different albedo bins
+    albedo_bins = np.linspace(np.min(albedo), np.max(albedo), 100)
+
+    for i in range(len(albedo_bins) - 1):
+        mask = (albedo >= albedo_bins[i]) & (albedo < albedo_bins[i + 1])
+        if np.any(mask):
+            lst_max[mask] = np.nanmax(lst[mask])
+            lst_min[mask] = np.nanmin(lst[mask])
+
+    # Compute normalized LST
+    lst_max[np.isnan(lst_max)] = np.nanmax(lst)  # replace NaNs with global max
+    lst_min[np.isnan(lst_min)] = np.nanmin(lst)  # replace NaNs with global min
+
+    t_prime = (lst - lst_min) / (lst_max - lst_min)
+    t_prime = np.clip(t_prime, 0, 1)  # ensure t_prime is within [0, 1]
+
+    # Calculate evaporative fraction
+    ef = 1 - t_prime
+    savetif(ef, output_path, referecnce_band)
+
+    return ef
+
+######################################################################
+
+def le_ssebi(ef, rn, g, outputPath, band_path):
+
+    # Latent HEat Flux [W/m2]
+    # via Baasriansen, 2000 (BASTIAANSSEN, W. G. M. SEBAL - based sensible and latent heat fluxes in the irrigated Gediz Basin, Turkey. Journal of Hydrology, v.229, p.87-100, 2000.)
+
+    le = ef * (rn - g)
+
+    savetif(le, outputPath, band_path)
+    return le
+######################################################################
+
+def soilGFlux_ssebi(LST_C, albedo, ndvi, Rn, outputPath, reference_path):
+    """
+    # Soil/Ground Heat Flux [W/m2]
+    # via BASTIAANSSEN, 2000 (BASTIAANSSEN, W. G. M. SEBAL - based sensible and latent heat fluxes in the irrigated Gediz Basin, Turkey. Journal of Hydrology, v.229, p.87-100, 2000.)
+
+    LST = Land Surface Temperature [°C]
+    albedo = Albedo [-]
+    ndvi = Normal Differential Vegetation Index [-]
+    Rn - Net ENergy Budget [W/m-2]
+    """
+
+    G = LST_C / albedo * (0.0038 * albedo + 0.0074 * albedo ** 2) * (1 - 0.98 * ndvi ** 4) * Rn
+    
+
+    G = np.where(ndvi < 0, Rn * 0.5, G)  #assume water
+    G = np.where((LST_C < 4) & (albedo > 0.45), Rn * 0.5, G) #assume snow
+
+    
+
+    savetif(G, outputPath, reference_path)
+    return G
+
+######################################################################
+
+def h_ssebi(ef, rn, g, outputPath, band_path):
+       
+    h = (1 - ef) * (rn - g)
+
+    savetif(h, outputPath, band_path)
+
+    return h
+
+
+#########################################################
+################### SEBAL functions ###################
+#########################################################
+
+def select_cold_pixel(albedo, LAI, LST):
+    """Select the cold pixel based on albedo, LAI, and LST, or use average LST if none found."""
+    cold_mask = (albedo >= 0.22) & (albedo <= 0.24) & (LAI >= 4) & (LAI <= 6)
+    cold_candidates = np.where(cold_mask)
+
+    if len(cold_candidates[0]) > 0:
+        min_LST_index = np.argmin(LST[cold_candidates])
+        cold_pixel_idx = (cold_candidates[0][min_LST_index], cold_candidates[1][min_LST_index])
+    else:
+        warnings.warn("No cold pixel found with the specified conditions. Using the pixel closest to average LST.")
+        average_LST = np.mean(LST)
+        cold_pixel_idx = np.unravel_index(np.argmin(np.abs(LST - average_LST)), LST.shape)
+
+    return cold_pixel_idx
+
+def select_hot_pixel(LAI, LST):
+    """Select the hot pixel based on LAI and LST, or use average LST if none found."""
+    hot_mask = (LAI >= 0) & (LAI <= 0.4)
+    hot_candidates = np.where(hot_mask)
+
+    if len(hot_candidates[0]) > 0:
+        max_LST_index = np.argmax(LST[hot_candidates])
+        hot_pixel_idx = (hot_candidates[0][max_LST_index], hot_candidates[1][max_LST_index])
+    else:
+        warnings.warn("No hot pixel found with the specified conditions. Using the pixel closest to average LST.")
+        average_LST = np.nanmean(LST)
+        hot_pixel_idx = np.unravel_index(np.argmin(np.abs(LST - average_LST)), LST.shape)
+
+    return hot_pixel_idx
+
+def calculate_dT_hot(net_radiation, g_flux, ra, hot_pixel):
+    """Calculate dT for the hot pixel, using average ra if the hot pixel's ra value is NaN."""
+    
+    # Check if ra at the hot_pixel index is NaN
+    if np.isnan(ra[hot_pixel]):
+        # Calculate the average of ra over all valid (non-NaN) values
+        ra_hot = np.nanmean(ra)
+        print("Warning: ra at the hot pixel is NaN. Using average ra value.")
+    else:
+        ra_hot = ra[hot_pixel]
+    
+    # Calculate dT_hot
+    dT_hot = (net_radiation[hot_pixel] - g_flux[hot_pixel]) * ra_hot / (1.225 * 1004)
+    
+    return dT_hot
+
+def calculate_dT_cold():
+    """Calculate dT for the cold pixel."""
+    # Assume dT_cold is 0 for well-watered conditions
+    dT_cold = 0.0
+    return dT_cold
+
+def calculate_dt_image(dt_hot, dt_cold, lst, cold_pix, hot_pix, outputPath, reference_img):
+    # Calculate coefficients a and b using the SEBAL model equations
+    a = (dt_hot - dt_cold) / (lst[hot_pix] - lst[cold_pix])
+    
+    
+    b = dt_hot - a * lst[hot_pix]
+    
+    
+    # Apply the linear relationship dT = a * LST + b across the entire image
+    
+    dT = a * lst + b
+    #savetif(dT, outputPath, reference_img)
+    return dT
+
+def iterate_H(Rn, albedo, G, LST, ra, LAI,outputPath, reference_img, max_iters=10, tol=0.01):
+    """Iteratively calculate sensible heat flux H using the SEBAL model."""
+    
+    cold_pix = select_cold_pixel(albedo, LAI, LST)
+    hot_pix = select_hot_pixel(LAI, LST)
+    
+    # Initialize dT
+    dt_cold = calculate_dT_cold()
+    dt_hot = calculate_dT_hot(Rn, G, ra, hot_pix)
+    
+    H = np.zeros(LST.shape)
+    
+    for i in range(max_iters):
+        H_old = H.copy()
+        
+        # Calculate dT for the entire image
+        dT = calculate_dt_image(dt_hot, dt_cold, LST, cold_pix, hot_pix, None, None)
+        
+        # Update H based on dT and aerodynamic resistance
+        H = 1.225 * 1004 * dT / 20
+        
+        # Check for convergence
+        if np.all(np.abs(H - H_old) < tol):
+            print(f"Converged after {i+1} iterations.")
+            break
+
+    else:
+        print("Warning: Maximum iterations reached before convergence.")
+    savetif(H, outputPath, reference_img)
+    return H
+
+######################################################################
+######################################################################
+######################################################################
 ######################################################################
 
 def ETI(Kc, ET0, outputPath, reference_img):
@@ -1119,6 +1138,9 @@ def savi(red, nir, outputPath, reference_img):
 def lai(savi, outputPath, reference_img):
     LAI = np.where(savi > 0, np.log((0.61 - savi) / 0.51) / 0.91 * (-1), 0)
     LAI = np.where(savi >= 0.61, 1, LAI)
+
+    LAI = np.where(LAI<=0, np.nan, LAI)
+    #LAI = -((np.log((0.69 * savi) / 0.59)) / 0.91)
     
     savetif(LAI, outputPath, reference_img)
     return LAI

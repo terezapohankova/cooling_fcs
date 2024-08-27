@@ -54,11 +54,12 @@ for jsonFile in JSON_MTL_PATH:
 
 # create output path for clipped images by pairing sensing date from JSON metadata file and sensing date on original images
 for inputBand in ORIGINAL_IMG:
+    clip_path = os.path.join(OUT_CLIP_FOLDER, date, 'clipped_' + os.path.basename(inputBand))
     for date in sensingDate:
         
         if os.path.basename(inputBand).split('_')[3] == date: # if date on original input band equals date sensing date from json mtl, then append it to the list
             #pprint(os.path.join(OUTPUT_PATH, OUT_CLIP_FOLDER, date, 'clipped_' + os.path.basename(inputBand)))
-            CLIPPED_IMG_PATHS.append(os.path.join(OUT_CLIP_FOLDER, date, 'clipped_' + os.path.basename(inputBand)))
+            CLIPPED_IMG_PATHS.append(clip_path)
             # pprint(CLIPPED_IMG_PATHS)
 
 for inputBand in ORIGINAL_IMG:
@@ -69,8 +70,7 @@ for inputBand in ORIGINAL_IMG:
     
     if 'L2SP' and 'QA_PIXEL' in image_basename:
         date = image_basename.split('_')[3]
-        clippedImgPath = os.path.join(OUT_CLIP_FOLDER, date, 'clipped_' + (os.path.basename(inputBand)))
-        supportlib_v2.clipimage(AREA_MASK, inputBand, clippedImgPath, True, False)
+        supportlib_v2.clipimage(AREA_MASK, inputBand, clip_path, True, False)
         #pprint(clippedImgPath)
     
         
@@ -80,8 +80,8 @@ for inputBand in ORIGINAL_IMG:
         #image_name = image_basename.replace('.TIF','') #'LC09_L2SP_189026_20220612_20220614_02_T1_SR_B1'
                    
         date = image_basename.split('_')[3] # '20220612'   
-        clippedImgPath = os.path.join(OUT_CLIP_FOLDER, date, 'clipped_' + (os.path.basename(inputBand))) # '/home/tereza/Documents/testy_VSC/clipped_bands/20220612/clipped_LC09_L2SP_189026_20220612_20220614_02_T1_SR_B1.TIF'                                                    
-        supportlib_v2.clipimage(AREA_MASK, inputBand, clippedImgPath, True, False)
+        #clippedImgPath = os.path.join(OUT_CLIP_FOLDER, date, 'clipped_' + os.path.basename(inputBand)) # '/home/tereza/Documents/testy_VSC/clipped_bands/20220612/clipped_LC09_L2SP_189026_20220612_20220614_02_T1_SR_B1.TIF'                                                    
+        supportlib_v2.clipimage(AREA_MASK, inputBand, clip_path, True, False)
 
       
     
