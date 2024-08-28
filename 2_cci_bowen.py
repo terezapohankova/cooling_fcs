@@ -403,8 +403,8 @@ for date in sensing_date_list:
     g_path_sebal = os.path.join(OUTPUT_FOLDER,FOLDERS[5], os.path.basename(reference_img.replace('B5.TIF', 'g_sebal.TIF')))
     z0m_path_sebal = os.path.join(OUTPUT_FOLDER,FOLDERS[1], os.path.basename(reference_img.replace('B5.TIF', 'z0m_sebal.TIF')))
     u200_path_sebal = os.path.join(OUTPUT_FOLDER,FOLDERS[5], os.path.basename(reference_img.replace('B5.TIF', 'u200_sebal.TIF')))
-    frictionvel_path_sebal = os.path.join(OUTPUT_FOLDER,FOLDERS[5], os.path.basename(reference_img.replace('B5.TIF', 'u_aster_sebal.TIF')))
-    rah_sebal_path = os.path.join(OUTPUT_FOLDER,FOLDERS[5], os.path.basename(reference_img.replace('B5.TIF', 'rah_sebal.TIF')))
+    #frictionvel_path_sebal = os.path.join(OUTPUT_FOLDER,FOLDERS[5], os.path.basename(reference_img.replace('B5.TIF', 'u_aster_sebal.TIF')))
+    #rah_sebal_path = os.path.join(OUTPUT_FOLDER,FOLDERS[5], os.path.basename(reference_img.replace('B5.TIF', 'rah_sebal.TIF')))
     et0_PM_path = os.path.join(OUTPUT_FOLDER,FOLDERS[6], os.path.basename(reference_img.replace('B5.TIF', 'et0_day_PM.TIF')))
     h_sebal_path = os.path.join(OUTPUT_FOLDER,FOLDERS[5], os.path.basename(reference_img.replace('B5.TIF', 'h_sebal.TIF')))
     le_path = os.path.join(OUTPUT_FOLDER,FOLDERS[5], os.path.basename(reference_img.replace('B5.TIF', 'le_sebal.TIF')))
@@ -413,10 +413,10 @@ for date in sensing_date_list:
 
     g_flux_sebal = supportlib_v2.soilGFlux_ssebi(lst_C, albd, ndvi, net_radiation, g_path_sebal, reference_img) #soil heat flux
     z0m_sebal = supportlib_v2.z0m(VEG_HEIGHT, z0m_path_sebal, reference_img)
-    z0m_sebal = 0.24
-    u200_sebal = supportlib_v2.wind_speed_blending(meteorologyDict[date]['wind_sp'], BLENDING_HEIGHT, z0m_sebal, MEASURING_HEIGHT, u200_path_sebal, reference_img)
-    fric_vel_sebal = supportlib_v2.u_fric_vel(u200_sebal, BLENDING_HEIGHT, z0m_sebal, frictionvel_path_sebal, reference_img)
-    rah_incorr_sebal = supportlib_v2.rah(0.1,2, fric_vel_sebal, rah_sebal_path, reference_img)
+    #z0m_sebal = 0.24
+    u200_sebal = supportlib_v2.wind_speed_blending(meteorologyDict[date]['wind_sp'], BLENDING_HEIGHT, z0m_sebal, MEASURING_HEIGHT)
+    fric_vel_sebal = supportlib_v2.u_fric_vel(u200_sebal, BLENDING_HEIGHT, z0m_sebal)
+    rah_incorr_sebal = supportlib_v2.rah(0.1,2, fric_vel_sebal)
     bi_path_sebal = os.path.join(OUTPUT_FOLDER,FOLDERS[7], os.path.basename(reference_img.replace('B5.TIF', 'BI_sebal.TIF')))
 
 
@@ -425,10 +425,11 @@ for date in sensing_date_list:
     ET0_PM_day = supportlib_v2.ET0(e0,slope_vap_press, meteorologyDict[date]['wind_sp'], es, g_flux_MJ, psychro, net_radiation_MJ, ta_kelvin, et0_PM_path, reference_img)
     
     
-
-    h_flux_sebal = supportlib_v2.calculate_H_iteration(net_radiation, g_flux_sebal,
+    
+    h_flux_sebal = supportlib_v2.h_incorr_sebal(net_radiation, g_flux_sebal,
                                                  lst, albd, lai_index, rah_incorr_sebal,
-                                                 rho, cp, h_sebal_path, reference_img)
+                                                 rho, cp, fric_vel_sebal, 
+                                                 2, 0.1, ta_kelvin, h_sebal_path, reference_img)
     
     le_flux_sebal = supportlib_v2.le_sebal(net_radiation, g_flux_sebal, h_flux_sebal,
                                            le_path, reference_img)
@@ -436,6 +437,26 @@ for date in sensing_date_list:
     bi = supportlib_v2.bowenIndex(h_flux_sebal, le_flux_sebal, 
                                   bi_path_sebal, reference_img)
 
+    mo = supportlib_v2.calculate_MO(rho, cp, ta_kelvin, h_flux_sebal,
+                                    fric_vel_sebal)
+    
+    factor_x_200 = 200
+    factor_x_2 = 2
+    factor_x_= 0.1
+
+    x_200 = supportlib_v2.calculate_x(factor_x_200, mo)
+    x_2 = supportlib_v2.calculate_x(factor_x_2, mo)
+    x_01 = supportlib_v2.calculate_x(factor_x_, mo)
+    
+    psi_m_200 = supportlib_v2.stability_correction(x_200, mo, factor_x_200)
+    psi_h_2 = supportlib_v2.stability_correction(x_2, mo, factor_x_2)
+    psi_h_01 = supportlib_v2.stability_correction(x_01, mo, factor_x_)
+    
+    u_star_corr = supportlib_v2.u_fric_vel_corr(u200_sebal, BLENDING_HEIGHT, 
+                                                z0m_sebal, psi_m_200)
+    
+    rah_corr = supportlib_v2.rah_corr(0.1, 2, u_star_corr,
+                                      psi_h_2, psi_h_01)
     """
     
     

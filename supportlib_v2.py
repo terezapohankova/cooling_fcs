@@ -16,6 +16,7 @@ import json
 import matplotlib.pyplot as plt
 from scipy.stats import linregress
 from scipy import stats
+import warnings
 
 
 
@@ -448,21 +449,19 @@ def z0m(vegHeight, outputPath, reference_img):
     #savetif(z0m, outputPath, reference_img)
     return z0m
 
-def wind_speed_blending(wind_ref_h, blending_height, momentum_z0m, ref_height, outputpath, reference_img):
+def wind_speed_blending(wind_ref_h, blending_height, momentum_z0m, ref_height):
     wind_bl_hg = wind_ref_h * np.log(blending_height / momentum_z0m) / (np.log(ref_height / momentum_z0m))
     #wind_bl_hg = np.where(wind_bl_hg < 0, np.nanmean(wind_bl_hg), wind_bl_hg)
     
     #savetif(wind_bl_hg, outputpath, reference_img)
     return wind_bl_hg
 
-def u_fric_vel(u_bl_heigh, blend_height, momentum_z0m, outputpath, reference_img, k = 0.41):
+def u_fric_vel(u_bl_heigh, blend_height, momentum_z0m, k = 0.41):
     u_ast = (k * u_bl_heigh) / np.log(blend_height / momentum_z0m)
-    #u_ast = np.where(u_ast < 0, np.nanmean(u_ast), u_ast)
-
-    #savetif(u_ast, outputpath, reference_img)
+    
     return u_ast
     
-def rah(z1, z2, fric_vel, outputpath, reference_img, k = 0.41):
+def rah(z1, z2, fric_vel, k = 0.41):
     r_ah = (np.log(z2 / z1) ) / (fric_vel * k)
     #r_ah[np.isnan(r_ah)] = np.nanmean(r_ah)
     
@@ -486,73 +485,6 @@ def e_aster(Po, Tr):
 def delta_pt(e_ast, air_temp_k, Tr):
     return ((373.15 * e_ast) / (air_temp_k**2)) * (13.3185 - (3.952*Tr) - (1.9335*(Tr**2)) - (0.5196*(Tr**3)))
 
-    
-def calculate_MO(u_star, T_mean, H, rho, cp, outputpath, reference_img, kappa=0.41, g=9.81):
-    """Calculate the Monin-Obukhov length L."""
-    
-    L = -(u_star**3 * T_mean) / (kappa * g * H / (rho * cp))
-    L = np.where(L < -50, -100, L)
-
-    savetif(L, outputpath, reference_img)
-    return L
-
-def calculate_x(factor, MO):
-    x = (1 - 16 * (factor / MO))**0.25
-    return x
-    
-def Psi_unstable_m(x_200m):
-    """Calculate Psi_m for unstable conditions."""
-    term1 = 2 * np.log((1 + x_200m) / 2)
-    term2 = np.log((1 + x_200m**2) / 2)
-    term3 = -2 * np.arctan(x_200m)
-    term4 = 0.5 * np.pi
-    return term1 + term2 + term3 + term4
-
-def Psi_unstable_h(x):
-    """Calculate Psi_h for unstable conditions."""
-    return 2 * np.log((1 + x**2) / 2)
-
-def Psi_stable(z, L):
-    """Calculate Psi for stable conditions."""
-    return -5 * (z / L)
-
-def calculate_psi(L):
-    """Calculate Psi_m and Psi_h based on Monin-Obukhov length L."""
-    
-    if np.any(L < 0):  # Unstable conditions
-        x_200m = calculate_x(200, L)
-        x_2m = calculate_x(2, L)
-        x_0_1m = calculate_x(0.1, L)
-        
-        Psi_m_200m = Psi_unstable_m(x_200m)
-        Psi_h_2m = Psi_unstable_h(x_2m)
-        Psi_h_0_1m = Psi_unstable_h(x_0_1m)
-
-    elif np.any(L > 0):  # Stable conditions
-        Psi_m_200m = Psi_stable(200, L)
-        Psi_h_2m = Psi_stable(2, L)
-        Psi_h_0_1m = Psi_stable(0.1, L)
-        
-    else:  # Neutral conditions, L == 0
-        Psi_m_200m = 0
-        Psi_h_2m = 0
-        Psi_h_0_1m = 0
-        
-    return Psi_m_200m, Psi_h_2m, Psi_h_0_1m
-
-def u_fric_vel_corr(u_bl_heigh, blend_height, momentum_z0m, Psi_m_200m, outputpath, reference_img, k = 0.41):
-    u_ast = (k * u_bl_heigh) / ((np.log(blend_height / momentum_z0m)) - Psi_m_200m)
-    u_ast = np.where(u_ast == np.nan, np.nanmean(u_ast), u_ast)
-
-    #savetif(u_ast, outputpath, reference_img)
-    return u_ast
-
-def correct_rah(rah, z1, z2, psi_h_2, psi_h_01, u_ast_corr, outputpath, reference_img):
-    rah = (np.log(z2 / z1) - psi_h_2 + psi_h_01) / (u_ast_corr * 0.41)
-
-    savetif(rah, outputpath, reference_img)
-    return rah
-
 ######################################################################
 
 def ET0(e0, SatVapCurve, WindSp, es, G, psych, Rn, Ta, outputPath, band_path):
@@ -562,125 +494,6 @@ def ET0(e0, SatVapCurve, WindSp, es, G, psych, Rn, Ta, outputPath, band_path):
     #ET0_daily = numerator / denominator
     savetif(ET0_daily, outputPath, band_path)
     return ET0_daily
-
-
-
-"""def phi_max(ndvi, lst, num_intervals, reference_band, outputPath, phi_min_global=0):
-    
-    np.seterr(all="ignore")
-    global_phi_max = np.nanmax(ndvi)
-    global_phi_max_values = np.zeros_like(ndvi)
-
-    # Segment NDVI into intervals and determine \phi_{\max} for each interval
-    ndvi_intervals = np.linspace(np.nanmin(ndvi), np.nanmax(ndvi), num=num_intervals)
-
-    for i in range(len(ndvi_intervals) - 1):
-        # Create a mask to identify pixels within the current NDVI interval
-        mask = (ndvi >= ndvi_intervals[i]) & (ndvi < ndvi_intervals[i + 1])
-
-        if np.any(mask):
-            # Find the pixel with the lowest temperature within this NDVI interval
-            masked_lst = lst[mask]
-            min_index = np.argmin(masked_lst)
-            lowest_temp_pixel = np.where(mask)[0][min_index], np.where(mask)[1][min_index]
-
-            interval_phi_max = ndvi[lowest_temp_pixel]
-            global_phi_max_values[mask] = interval_phi_max
-        else:
-            # Handle case where no pixels in the interval
-            print(f"No pixels in NDVI interval {i}")  # Or handle differently
-
-    # Interpolate \phi_{\max} for each pixel
-    phi_max = phi_min_global + (ndvi / global_phi_max) * (global_phi_max_values - phi_min_global)
-    #global_phi[np.isnan(global_phi)] = 0
-    
-    if np.any(phi_max):
-        #pprint('phi_max')
-        savetif(phi_max, r'/home/tereza/Documents/data/LANDSAT/RESULTS/vegIndices/phi_max.TIF', 
-                r'/home/tereza/Documents/data/LANDSAT/RESULTS/vegIndices/clipped_LC09_L2SP_190025_20230926_20230928_02_T1_SR_ndvi.TIF')
-    else:
-        pprint('None')
-    return phi_max
-
-import numpy as np
-
-def phi_min(ndvi, phi_min_global, num_intervals, phi_max):
-    # Determine NDVI interval boundaries
-    ndvi_max = np.nanmax(ndvi)
-    
-    # Segment NDVI into intervals and determine \phi_{\max} for each interval
-    ndvi_intervals = np.linspace(np.nanmin(ndvi), np.nanmax(ndvi), num=num_intervals)
-    
-    for i in range(len(ndvi_intervals) - 1):
-        # Create a mask to identify pixels within the current NDVI interval
-        mask = (ndvi >= ndvi_intervals[i]) & (ndvi < ndvi_intervals[i + 1])
-        if np.any(mask):
-
-            phi_min_intervals = phi_min_global + (ndvi / ndvi_max) * (phi_max - phi_min_global)
-    
-    if np.any(phi_min_intervals):
-        savetif(phi_min_intervals, r'/home/tereza/Documents/data/LANDSAT/RESULTS/vegIndices/phi_min_intervals.TIF', 
-                r'/home/tereza/Documents/data/LANDSAT/RESULTS/vegIndices/clipped_LC09_L2SP_190025_20230926_20230928_02_T1_SR_ndvi.TIF')
-    else:
-        pprint('None')
-  
-    return phi_min_intervals
-
-def interpolate_phi(lst, ndvi, phi_min, phi_max):
-    # Normalize LST and NDVI (adjust normalization method as needed)
-    lst_norm = (lst - np.nanmin(lst)) / (np.nanmax(lst) - np.nanmin(lst))
-    
-    ndvi_norm = (ndvi - np.nanmin(ndvi)) / (np.nanmax(ndvi) - np.nanmin(ndvi))
-    #pprint(np.nanmean(ndvi_norm))
-    
-    # Assign weights (adjust weights based on desired relationship)
-    weight_lst = 1 - lst_norm
-    weight_ndvi = ndvi_norm
-
-    # Calculate weighted average
-    phi = weight_lst * phi_min + weight_ndvi * phi_max
-
-    if np.any(phi):
-        savetif(phi, r'/home/tereza/Documents/data/LANDSAT/RESULTS/vegIndices/phi.TIF', 
-                r'/home/tereza/Documents/data/LANDSAT/RESULTS/vegIndices/clipped_LC09_L2SP_190025_20230926_20230928_02_T1_SR_ndvi.TIF')
-    else:
-        pprint('None')
-  
-
-    return phi
-
-def phi_test(ndvi, temperature, num_intervals=15):
-    
-     # Step 1: Calculate global \phi_{\min} and \phi_{\max}
-    phi_min = np.nanmin(ndvi)  # \phi_{\min} is set to 0 for the driest bare soil pixel
-    global_phi_max = 1.26  # \phi_{\max} is the highest NDVI value in the image
-
-    # Step 2: Initialize \phi_{\max} array
-    phi_max_values = np.zeros_like(ndvi)
-
-    # Step 3: Segment NDVI into intervals and determine \phi_{\max} for each interval
-    ndvi_intervals = np.linspace(np.nanmin(ndvi), 1.26, num=num_intervals)
-    for i in range(len(ndvi_intervals) - 1):
-        # Create a mask to identify pixels within the current NDVI interval
-        mask = (ndvi >= ndvi_intervals[i]) & (ndvi < ndvi_intervals[i + 1])
-        if np.any(mask):
-            # Find the pixel with the lowest temperature within this NDVI interval
-            lowest_temp_pixel = np.argmin(temperature[mask])
-            # Convert the flat index to the corresponding index in the masked array
-            masked_indices = np.where(mask)
-            lowest_temp_index = (masked_indices[0][lowest_temp_pixel], masked_indices[1][lowest_temp_pixel])
-            interval_phi_max = ndvi[lowest_temp_index]
-            # Assign the \phi_{\max} value for pixels in this interval
-            phi_max_values[mask] = interval_phi_max
-
-    # Step 4: Interpolate \phi values for each pixel
-    phi_interpolated = phi_min + (ndvi / global_phi_max) * (phi_max_values - phi_min)
-    if np.any(phi_interpolated):
-        savetif(phi_interpolated, r'/home/tereza/Documents/data/LANDSAT/RESULTS/vegIndices/phi.TIF', 
-                r'/home/tereza/Documents/data/LANDSAT/RESULTS/vegIndices/clipped_LC09_L2SP_190025_20230926_20230928_02_T1_SR_ndvi.TIF')
-    else:
-        pprint('None')
-    return phi_interpolated"""
 
 def ea(et0, ef, ndvi, outputPath, reference_img):
 
@@ -997,7 +810,13 @@ def h_ssebi(ef, rn, g, outputPath, band_path):
 ################### SEBAL functions ###################
 #########################################################
 
-import warnings
+def u_fric_vel_corr(u_bl_heigh, blend_height, momentum_z0m, psi_m_200, k = 0.41):
+    u_ast = (k * u_bl_heigh) / (np.log(blend_height / momentum_z0m)) - psi_m_200
+    return u_ast
+
+def rah_corr(z1, z2, fric_vel_corr, psi_h_2, psi_h_0_1, k = 0.41):
+    r_ah = (np.log(z2 / z1) )- psi_h_2 + psi_h_0_1 / (fric_vel_corr * k)
+    return r_ah
 
 def select_cold_pixel(albedo, LAI, LST):
     """Select the cold pixel based on albedo, LAI, and LST, or use average LST if none found."""
@@ -1076,33 +895,98 @@ def calculate_dt_image(dT_hot, dT_cold, lst, cold_pix, hot_pix):
     
     return dT
 
-def calculate_H_iteration(net_radiation, g_flux, LST, albedo, LAI, ra, rho, cp, outputPath, reference_img):
-    """Iterate to calculate H and determine when it becomes stable."""
+def calculate_MO(rho, cp, T, H, u_star, kappa=0.4, g=9.81,
+                 lower_bound=-1e6, upper_bound=1e6):
+    """Calculate the Monin-Obukhov length."""
+    mo = -((u_star**3 * T) / (kappa * g * H * (rho / cp)))
+
+    # Identify and replace extreme values
+    extreme_mask = (mo < lower_bound) | (mo > upper_bound) | np.isnan(mo)
+    if np.any(extreme_mask):
+        # Calculate the mean of non-extreme, valid values
+        mo_mean = np.nanmean(mo[~extreme_mask])
+        # Replace extreme values with the mean
+        mo = np.where(extreme_mask, mo_mean, mo)
+
+    return mo
+
+def calculate_x(factor, MO):
+    x = (1 - 16 * (factor / MO)) ** 0.25
+    return x
     
+def stability_correction(x, MO, factor):
+    """Calculate stability-corrected aerodynamic resistance."""
+    
+    # Initialize the output variables
+    psi_m_200 = 0
+    psi_h_200 = 0
+    psi_h_2 = 0
+    psi_h_0_1 = 0
+    
+    if np.any(MO < 0):
+        # Unstable conditions
+        if factor == 200:
+            term1 = 2 * np.log((1 + x) / 2)
+            term2 = np.log((1 + x**2) / 2)
+            term3 = -2 * np.arctan(x)
+            term4 = 0.5 * np.pi
+            psi_m_200 = term1 + term2 + term3 + term4
+            return psi_m_200
+        if factor == 2:
+            psi_h_2 = 2 * np.log((1 + x**2) / 2)  # Ensure term2 is defined
+            return psi_h_2
+        
+    elif np.any(MO > 0):
+        # Stable conditions
+        if factor == 200 or factor == 2:
+            psi_m_200 = -5 * (200 / MO)
+            psi_h_2 = -5 * (2 / MO)
+            return psi_m_200, psi_h_2
+        elif factor == 0.1:
+            psi_h_0_1 = -5 * (0.1 / MO)
+            return psi_h_0_1
+    
+    else:
+        # Neutral conditions, return zeros
+        return psi_m_200, psi_m_200, psi_h_2, psi_h_0_1
+
+
+def h_incorr_sebal(net_radiation, g_flux, LST, albedo, 
+                          LAI, ra, rho, cp, u, z, z0, T, 
+                          outputPath, reference_img):
+    """Iterate to calculate H with Monin-Obukhov stability correction."""
+
     cold_pixel = select_cold_pixel(albedo, LAI, LST)
     hot_pixel = select_hot_pixel(LAI, LST)
-    
+
     dT_cold = calculate_dT_cold()
     dT_hot = calculate_dT_hot(net_radiation, g_flux, ra, hot_pixel)
-    
+
     H_prev = None
     H_current = np.zeros(LST.shape)
-    
+
     tolerance = 0.01
     iteration_count = 0
-    
+
     while H_prev is None or np.max(np.abs(H_current - H_prev)) > tolerance:
         iteration_count += 1
         H_prev = H_current.copy()
-        
+
         dT = calculate_dt_image(dT_hot, dT_cold, LST, cold_pixel, hot_pixel)
-        H_current = (rho * cp * (dT / ra))
         
+        # Calculate the friction velocity
+        u_star = u_fric_vel(u, z, z0)
+
+        # Calculate Monin-Obukhov length
+        L = calculate_MO(rho, cp, T, H_current, u_star)
+
+        H_current = (rho * cp * dT)  / ra
+
         print(f"Iteration {iteration_count}: Max change in H = {np.max(np.abs(H_current - H_prev))}")
-        
+
     # Save the final H when optimal
     savetif(H_current, outputPath, reference_img)
-    
+
     return H_current
 
 def le_sebal(net_radiantion, g_flux, h_flux, ouputpath, reference_img):
