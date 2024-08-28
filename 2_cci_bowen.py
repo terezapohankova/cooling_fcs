@@ -11,7 +11,7 @@ start_time = time.time()
 INPUT_FOLDER = r'/home/tereza/Documents/data/LANDSAT/RESULTS/clipped_bands'
 METEOROLOGY = r'/home/tereza/Documents/gh_repos/cooling_fcs/aux_data/weather_2023_olomouc.csv'   
 HILLSHADE = r'aux_data/hillshade_olomouc_32633.tif'
-VEG_HEIGHT = r'aux_data/veg_height.tif'
+VEG_HEIGHT = r'aux_data/veg_height_30m.tif'
 JSON_MTL_PATH = supportlib_v2.getfilepath(INPUT_FOLDER, 'MTL.json') #['root/snimky_L9_testovaci/LC09_L2SP_190025_20220518_20220520_02_T1/LC09_L2SP_190025_20220518_20220520_02_T1_MTL.json']
 
 OUTPUT_FOLDER = r'/home/tereza/Documents/data/LANDSAT/RESULTS'
@@ -22,7 +22,8 @@ for folder in FOLDERS:
 
 Z = 650
 MEASURING_HEIGHT = 2
-BLENDING_HEIGHT = 200   
+BLENDING_HEIGHT = 200 
+cp = 1004  
 
 
 mtlJSONFile = {}
@@ -240,7 +241,7 @@ for date in sensing_date_list:
     p = supportlib_v2.atmPress(Z)
     pprint(f' atmPress : {p} + {date}')
 
-    rho = supportlib_v2.densityair(meteorologyDict[date]['atm_press'], ta_kelvin, meteorologyDict[date]['rel_hum'])
+    rho = supportlib_v2.densityair(meteorologyDict[date]['atm_press'], meteorologyDict[date]['avg_temp'], meteorologyDict[date]['rel_hum'])
     pprint(f' airDensitz : {rho} + {date}')
 
     psychro = supportlib_v2.psychroCons(p)
@@ -405,15 +406,18 @@ for date in sensing_date_list:
     frictionvel_path_sebal = os.path.join(OUTPUT_FOLDER,FOLDERS[5], os.path.basename(reference_img.replace('B5.TIF', 'u_aster_sebal.TIF')))
     rah_sebal_path = os.path.join(OUTPUT_FOLDER,FOLDERS[5], os.path.basename(reference_img.replace('B5.TIF', 'rah_sebal.TIF')))
     et0_PM_path = os.path.join(OUTPUT_FOLDER,FOLDERS[6], os.path.basename(reference_img.replace('B5.TIF', 'et0_day_PM.TIF')))
+    h_sebal_path = os.path.join(OUTPUT_FOLDER,FOLDERS[5], os.path.basename(reference_img.replace('B5.TIF', 'h_sebal.TIF')))
+    le_path = os.path.join(OUTPUT_FOLDER,FOLDERS[5], os.path.basename(reference_img.replace('B5.TIF', 'le_sebal.TIF')))
+    et_sebal_path = os.path.join(OUTPUT_FOLDER,FOLDERS[6], os.path.basename(reference_img.replace('B5.TIF', 'et_ins_sebal.TIF')))
 
 
     g_flux_sebal = supportlib_v2.soilGFlux_ssebi(lst_C, albd, ndvi, net_radiation, g_path_sebal, reference_img) #soil heat flux
     z0m_sebal = supportlib_v2.z0m(VEG_HEIGHT, z0m_path_sebal, reference_img)
+    z0m_sebal = 0.24
     u200_sebal = supportlib_v2.wind_speed_blending(meteorologyDict[date]['wind_sp'], BLENDING_HEIGHT, z0m_sebal, MEASURING_HEIGHT, u200_path_sebal, reference_img)
     fric_vel_sebal = supportlib_v2.u_fric_vel(u200_sebal, BLENDING_HEIGHT, z0m_sebal, frictionvel_path_sebal, reference_img)
-    rah_sebal = supportlib_v2.rah(0.1,2, fric_vel_sebal, rah_sebal_path, reference_img)
-    h_sebal_path = os.path.join(OUTPUT_FOLDER,FOLDERS[5], os.path.basename(reference_img.replace('B5.TIF', 'h_sebal.TIF')))
-    et_sebal_path = os.path.join(OUTPUT_FOLDER,FOLDERS[6], os.path.basename(reference_img.replace('B5.TIF', 'et_ins_sebal.TIF')))
+    rah_incorr_sebal = supportlib_v2.rah(0.1,2, fric_vel_sebal, rah_sebal_path, reference_img)
+    bi_path_sebal = os.path.join(OUTPUT_FOLDER,FOLDERS[7], os.path.basename(reference_img.replace('B5.TIF', 'BI_sebal.TIF')))
 
 
     net_radiation_MJ = supportlib_v2.W_to_MJday(net_radiation) #convert W/m2 to MJ/s/day
@@ -421,37 +425,17 @@ for date in sensing_date_list:
     ET0_PM_day = supportlib_v2.ET0(e0,slope_vap_press, meteorologyDict[date]['wind_sp'], es, g_flux_MJ, psychro, net_radiation_MJ, ta_kelvin, et0_PM_path, reference_img)
     
     
-    #cold_pix = supportlib_v2.select_cold_pixel(albd, lai_index, lst)
-    #hot_pix = supportlib_v2.select_hot_pixel(lai_index, lst)
-    
-    #pprint(net_radiation[hot_pix])
-    #dt_path = os.path.join(OUTPUT_FOLDER,FOLDERS[5], os.path.basename(reference_img.replace('B5.TIF', 'dt_sebal.TIF')))
-    
-    #dT_hot = supportlib_v2.calculate_dT_hot(net_radiation, 
-     #                                     g_flux_sebal, 
-     #                                      rah_sebal, hot_pix)
-    
-    #dT_cold = supportlib_v2.calculate_dT_cold()
-    
-    #dT = supportlib_v2.calculate_dt_image(dT_hot,dT_cold,
-    #                                      lst, cold_pix, hot_pix,
-    #                                      dt_path, reference_img)
-    
-    
-    h_sebal = supportlib_v2.iterate_H(net_radiation, albd, g_flux_sebal,lst,rah_sebal,
-                                      lai_index, h_sebal_path, reference_img)
-    
-    le_sebal_path = os.path.join(OUTPUT_FOLDER,FOLDERS[5], os.path.basename(reference_img.replace('B5.TIF', 'le_sebal.TIF')))
 
-    LE = net_radiation - g_flux_sebal - h_sebal
-    supportlib_v2.savetif(LE, le_sebal_path, reference_img)
-
-    et_ins = 3600 * (LE / 2.45)
-    etrf = et_ins / ET0_PM_day
-
-    et_day = etrf * ET0_PM_day
-    supportlib_v2.savetif(et_ins, et_sebal_path, reference_img)
+    h_flux_sebal = supportlib_v2.calculate_H_iteration(net_radiation, g_flux_sebal,
+                                                 lst, albd, lai_index, rah_incorr_sebal,
+                                                 rho, cp, h_sebal_path, reference_img)
     
+    le_flux_sebal = supportlib_v2.le_sebal(net_radiation, g_flux_sebal, h_flux_sebal,
+                                           le_path, reference_img)
+
+    bi = supportlib_v2.bowenIndex(h_flux_sebal, le_flux_sebal, 
+                                  bi_path_sebal, reference_img)
+
     """
     
     
