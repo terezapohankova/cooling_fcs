@@ -215,7 +215,7 @@ def scatterplot_2d(x, y, var1, var2, pathout):
 
 
 def W_to_MJday(variable):
-    return ((variable / 10 ** 6)) * 86400
+    return (variable * 0.0864)
 ############################################################################################################################################
 #   ALBEDO                                                                                                                                 #
 # via https://www.scielo.br/j/rbeaa/a/sX6cJjNXWMfHQ5p4h33B8Zz/?lang=en&format=pdf                                                          #
@@ -391,7 +391,7 @@ def psychroCons(P):
 
     P = Atmospheric Pressure [kPa]
     """
-    y =  0.00065 * P
+    y =  0.000665 * P
     return y
 
 ######################################################################
@@ -471,10 +471,18 @@ def rah(z1, z2, fric_vel, k = 0.41):
 
 ######################################################################
 def slopeVapPress(Ta):
-    slopeVapPress = round((4098 * 0.6108 * 2.7183 ** ((17.27 * Ta)/(Ta+237.3)) / (Ta + 237.3) ** 2),3)
+    slopeVapPress = round((4098 * 0.6108 * np.exp ((17.27 * Ta)/(Ta+237.3)) / (Ta + 237.3) ** 2),3)
     return slopeVapPress
 
 ######################################################################
+
+# Stull formula; relative humidities between 5% and 99% and temperatures between -20°C and 50°C. 
+def Tw_bulb(Ta, RH):
+    tw = (Ta * np.arctan(0.151977 * (np.sqrt(RH + 8.31659)))) + \
+    + ((0.00391838 * np.sqrt(RH**3)) * np.arctan(0.023101*RH)) - \
+    (np.arctan(RH - 1.676331)) + np.arctan(Ta+RH) - 4.686035
+
+    return tw
 
 def tr(air_temp_k):
     return 1 - (373.15 / air_temp_k)
@@ -488,11 +496,21 @@ def delta_pt(e_ast, air_temp_k, Tr):
 ######################################################################
 
 def ET0(e0, SatVapCurve, WindSp, es, G, psych, Rn, Ta, outputPath, band_path):
-    VPD = e0-es
-    ET0_daily = ((0.408 * SatVapCurve * (Rn - G) + psych * (90 / (Ta + 273.15)) * WindSp * VPD) / (SatVapCurve + psych * (1 + 0.34 * WindSp))) 
+    # https://edis.ifas.ufl.edu/publication/AE459
+    #VPD = es-e0
+    #ET0_daily = ((0.408 * SatVapCurve * (Rn - G) + psych * (900 / (Ta + 273.15)) 
+                  #* WindSp * VPD) / (SatVapCurve + psych * (1 + 0.34 * WindSp))) 
     
-    #ET0_daily = numerator / denominator
+    DT = SatVapCurve / (SatVapCurve + psych * 1 + 0.34 * WindSp)
+    PT = psych / (SatVapCurve + psych * (1 + 0.34*WindSp))
+    TT = (900 / Ta + 273) * WindSp
+    ET_wind = PT * TT * (es - e0)
+
+    Rng = Rn * 0.408
+    ET_rad = DT * Rng
+    ET0_daily = ET_wind + ET_rad
     savetif(ET0_daily, outputPath, band_path)
+    #savetif(ET_rad, outputPath, band_path)
     return ET0_daily
 
 def ea(et0, ef, ndvi, outputPath, reference_img):
@@ -804,6 +822,28 @@ def h_ssebi(ef, rn, g, outputPath, band_path):
     savetif(h, outputPath, band_path)
 
     return h
+
+
+#########################################################
+################### SSeBop functions ###################
+#########################################################
+
+
+# https://hess.copernicus.org/preprints/11/723/2014/hessd-11-723-2014.pdf
+def etf_ssebop(lst, Rn, rho, cp, output_path, reference_img, rah = 110):
+    th = np.nanmax(lst)
+
+    etf = (th - lst) / ((Rn * rah) / (rho * cp))
+
+    savetif(etf, output_path, reference_img)
+    return etf
+
+# https://hess.copernicus.org/preprints/11/723/2014/hessd-11-723-2014.pdf
+def eta_ssebop(etf, k, et0,outputpath, reference_img):
+    eta_ssebop = etf * (k * et0)
+
+    savetif(eta_ssebop, outputpath, reference_img)
+    return eta_ssebop
 
 
 #########################################################
