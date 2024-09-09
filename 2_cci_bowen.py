@@ -274,7 +274,10 @@ for date in sensing_date_list:
     savi_index = supportlib_v2.savi(imgDict[date]['B4_L2']['clipped_path'], imgDict[date]['B5_L2']['clipped_path'], savi_path, reference_img)
     
     lai_path = os.path.join(OUTPUT_FOLDER,FOLDERS[1], os.path.basename(reference_img.replace('B5.TIF', 'lai.TIF')))
-    lai_index = supportlib_v2.lai(savi_index, lai_path, reference_img)
+    lai_index = supportlib_v2.lai(ndvi, lai_path, reference_img)
+
+    kc_path = os.path.join(OUTPUT_FOLDER,FOLDERS[1], os.path.basename(reference_img.replace('B5.TIF', 'kc.TIF')))
+    kc = supportlib_v2.Kc_LAI(lai_index, kc_path, reference_img)
     
     ########## EMISSIVITY ######################
 
@@ -379,8 +382,6 @@ for date in sensing_date_list:
     net_radiation_path = os.path.join(OUTPUT_FOLDER,FOLDERS[2], os.path.basename(reference_img.replace('B5.TIF', 'netRadiation.TIF')))
     net_radiation = supportlib_v2.netradiation(rad_short_in, rad_short_out, rad_long_in, rad_long_out, reference_img, net_radiation_path\
                                                , albd, lse)
-
-    
     ################################
     ### S-SEBI  ##
     ################################
@@ -391,7 +392,7 @@ for date in sensing_date_list:
     le_ssebi_path = os.path.join(OUTPUT_FOLDER,FOLDERS[5], os.path.basename(reference_img.replace('B5.TIF', 'le_ssebi.TIF')))
     h_ssebi_path = os.path.join(OUTPUT_FOLDER,FOLDERS[5], os.path.basename(reference_img.replace('B5.TIF', 'h_ssebi.TIF')))
     bowen_path_ssebi = os.path.join(OUTPUT_FOLDER,FOLDERS[7], os.path.basename(reference_img.replace('B5.TIF', 'bowen_ssebi.TIF')))
-    
+    eta_ssebi_path = os.path.join(OUTPUT_FOLDER,FOLDERS[6], os.path.basename(reference_img.replace('B5.TIF', 'eta_ssebi.TIF')))
     
     g_flux_ssebi = supportlib_v2.soilGFlux_ssebi(lst_C, albd, ndvi, net_radiation, g_path_ssebi, reference_img) #soil heat flux
     ef_ssebi = supportlib_v2.ef_ssebi(albd, lst, ef_ssebi_path, band_path) #evaporative fraction
@@ -399,7 +400,27 @@ for date in sensing_date_list:
     h_flux_ssebi = supportlib_v2.h_ssebi(ef_ssebi, net_radiation, g_flux_ssebi, h_ssebi_path, reference_img) #sensible heat flux
     bowen_ssebi = supportlib_v2.bowenIndex(h_flux_ssebi, le_flux_ssebi, bowen_path_ssebi, band_path) #bowen ratio
 
+
+    net_radiation_MJ = supportlib_v2.W_to_MJday(net_radiation) #convert W/m2 to MJ/s/day
+    g_flux_MJ = supportlib_v2.W_to_MJday(g_flux_ssebi)  #convert W/m2 to MJ/s/day
+    le_flux_MJ = supportlib_v2.W_to_MJday(le_flux_ssebi)
+
+    eta_ssebi = supportlib_v2.et_a_day_ssebi(le_flux_MJ, net_radiation_MJ,
+                                             2.45 * (10**6), eta_ssebi_path, reference_img)
     
+    
+    ################################
+    ### PRIESTLEY-TAYLOR  ##
+    ################################
+    et_pt_path = os.path.join(OUTPUT_FOLDER,FOLDERS[6], os.path.basename(reference_img.replace('B5.TIF', 'et_pt.TIF')))
+    eta_pt_day = 0.68 * ((slope_vap_press / (slope_vap_press + psychro)) * (net_radiation_MJ / 2.45) - (g_flux_MJ / 2.45))
+
+    
+    supportlib_v2.savetif(eta_pt_day * kc, et_pt_path, reference_img)
+
+    
+    
+
     ################################
     ### SEBAL  ##
     ################################
@@ -409,7 +430,8 @@ for date in sensing_date_list:
     #u200_path_sebal = os.path.join(OUTPUT_FOLDER,FOLDERS[5], os.path.basename(reference_img.replace('B5.TIF', 'u200_sebal.TIF')))
     #frictionvel_path_sebal = os.path.join(OUTPUT_FOLDER,FOLDERS[5], os.path.basename(reference_img.replace('B5.TIF', 'u_aster_sebal.TIF')))
     #rah_sebal_path = os.path.join(OUTPUT_FOLDER,FOLDERS[5], os.path.basename(reference_img.replace('B5.TIF', 'rah_sebal.TIF')))
-    et0_PM_path = os.path.join(OUTPUT_FOLDER,FOLDERS[6], os.path.basename(reference_img.replace('B5.TIF', 'et0_day_PM.TIF')))
+    
+
     #h_sebal_path = os.path.join(OUTPUT_FOLDER,FOLDERS[5], os.path.basename(reference_img.replace('B5.TIF', 'h_sebal.TIF')))
     #le_path = os.path.join(OUTPUT_FOLDER,FOLDERS[5], os.path.basename(reference_img.replace('B5.TIF', 'le_sebal.TIF')))
     #et_sebal_path = os.path.join(OUTPUT_FOLDER,FOLDERS[6], os.path.basename(reference_img.replace('B5.TIF', 'et_ins_sebal.TIF')))
@@ -424,24 +446,41 @@ for date in sensing_date_list:
     #bi_path_sebal = os.path.join(OUTPUT_FOLDER,FOLDERS[7], os.path.basename(reference_img.replace('B5.TIF', 'BI_sebal.TIF')))
 
 
-    net_radiation_MJ = supportlib_v2.W_to_MJday(net_radiation) #convert W/m2 to MJ/s/day
-    #supportlib_v2.savetif(net_radiation_MJ, net_radiation_path, reference_img)
-    g_flux_MJ = supportlib_v2.W_to_MJday(g_flux_ssebi)  #convert W/m2 to MJ/s/day
-    ET0_PM_day = supportlib_v2.ET0(e0,slope_vap_press, meteorologyDict[date]['wind_sp'], 
+    ################################
+    ### PENMAN-MONETITH  ##
+    ################################
+
+    et0_PM_path = os.path.join(OUTPUT_FOLDER,FOLDERS[6], os.path.basename(reference_img.replace('B5.TIF', 'et0_day_PM.TIF')))
+    PM_ea_path = os.path.join(OUTPUT_FOLDER,FOLDERS[6], os.path.basename(reference_img.replace('B5.TIF', 'eta_day_PM.TIF')))
+
+    ET0_pm = supportlib_v2.ET0(e0,slope_vap_press, meteorologyDict[date]['wind_sp'], 
                                    es, g_flux_MJ, psychro, net_radiation_MJ, 
                                    meteorologyDict[date]['avg_temp'], et0_PM_path, reference_img)
+
+    PM_ea_day = supportlib_v2.ea_pm(ET0_pm, kc, PM_ea_path, reference_img)
+
+
     
+
+
+
+    ################################
+    ### SSEBOP  ##
+    ################################
+
     etf_ssebop_path = os.path.join(OUTPUT_FOLDER,FOLDERS[7], os.path.basename(reference_img.replace('B5.TIF', 'etf_ssebop.TIF')))
-    #etf_ssebop = supportlib_v2.etf_ssebop(psychro, lst, tw_bulb + 273.15, 
-    #                                      etf_ssebop_path, reference_img)
+    eta_ssebop_path = os.path.join(OUTPUT_FOLDER,FOLDERS[7], os.path.basename(reference_img.replace('B5.TIF', 'eta_ssebop.TIF')))
+
+    
     
     etf_ssebop = supportlib_v2.etf_ssebop(lst, net_radiation,
                                           rho, cp, etf_ssebop_path, reference_img)
 
-    eta_ssebop_path = os.path.join(OUTPUT_FOLDER,FOLDERS[7], os.path.basename(reference_img.replace('B5.TIF', 'eta_ssebop.TIF')))
-    eta_ssebop = supportlib_v2.eta_ssebop(etf_ssebop, 1.25, ET0_PM_day,
+    eta_ssebop = supportlib_v2.eta_ssebop(etf_ssebop, kc, ET0_pm,
                                           eta_ssebop_path, reference_img)
-    
+
+
+
     """h_flux_sebal = supportlib_v2.h_incorr_sebal(net_radiation, g_flux_sebal,
                                                  lst, albd, lai_index, rah_incorr_sebal,
                                                  rho, cp, fric_vel_sebal, 

@@ -508,20 +508,19 @@ def ET0(e0, SatVapCurve, WindSp, es, G, psych, Rn, Ta, outputPath, band_path):
 
     Rng = Rn * 0.408
     ET_rad = DT * Rng
-    ET0_daily = ET_wind + ET_rad
+    ET0_daily = (ET_wind + ET_rad) 
     savetif(ET0_daily, outputPath, band_path)
     #savetif(ET_rad, outputPath, band_path)
     return ET0_daily
 
-def ea(et0, ef, ndvi, outputPath, reference_img):
+def ea_pm(et0, kc, outputPath, reference_img):
 
-    ef_correct =  (0.35*(ndvi/0.7)+0.65) * ef
-    eactual = (et0 / 86400) * ef_correct
-    
-    
-    
-    savetif(eactual, outputPath, reference_img)
+    ea_pm  =  et0 * kc
+     
+
+    savetif(ea_pm, outputPath, reference_img)
     return
+
 ############################################################################################################################################
 #   RADIATION
 ############################################################################################################################################
@@ -823,11 +822,17 @@ def h_ssebi(ef, rn, g, outputPath, band_path):
 
     return h
 
+def et_a_day_ssebi(le, rn, lambda_v, output_path, reference_img):
+    #&eta =  (((rn - g) * ef)) #/ lambda_v) * 86400
+    #eta = (le * 86400) / lambda_v
+
+    eta = le * (rn * 86400) / (lambda_v * rn)
+    savetif(eta, output_path, reference_img)
+    return eta
 
 #########################################################
 ################### SSeBop functions ###################
 #########################################################
-
 
 # https://hess.copernicus.org/preprints/11/723/2014/hessd-11-723-2014.pdf
 def etf_ssebop(lst, Rn, rho, cp, output_path, reference_img, rah = 110):
@@ -840,7 +845,7 @@ def etf_ssebop(lst, Rn, rho, cp, output_path, reference_img, rah = 110):
 
 # https://hess.copernicus.org/preprints/11/723/2014/hessd-11-723-2014.pdf
 def eta_ssebop(etf, k, et0,outputpath, reference_img):
-    eta_ssebop = etf * (k * et0)
+    eta_ssebop = (etf * (k * et0)) 
 
     savetif(eta_ssebop, outputpath, reference_img)
     return eta_ssebop
@@ -1071,11 +1076,12 @@ def Kc(red, nir, outputPath):
     #savetif(Kc, outputPath)
     return Kc
 
+# https://github.com/natcap/invest.users-guide/raw/main/data-sources/kc_calculator.xlsx - from invest 
 def Kc_LAI(LAI, outputPath, reference_img):
     np.seterr(all = "ignore")
-    Kc_LAI = (1 - np.exp(-0.7 * LAI))
-    Kc_LAI = np.where(LAI <= 3, Kc_LAI, (LAI/3))
     
+    Kc_LAI = 1.1 * (1- np.exp(-1.5*(LAI)))
+
     savetif(Kc_LAI, outputPath, reference_img)
     return Kc_LAI
 
@@ -1137,13 +1143,10 @@ def savi(red, nir, outputPath, reference_img):
     return SAVI
 
 ############################################################################################################################################
-
-def lai(savi, outputPath, reference_img):
-    LAI = np.where(savi > 0, np.log((0.61 - savi) / 0.51) / 0.91 * (-1), 0)
-    LAI = np.where(savi >= 0.61, 1, LAI)
-
-    LAI = np.where(LAI<=0, np.nan, LAI)
-    #LAI = -((np.log((0.69 * savi) / 0.59)) / 0.91)
+# https://www.sciencedirect.com/science/article/pii/S1470160X22000243
+def lai(ndvi, outputPath, reference_img):
+    
+    LAI = (ndvi - np.nanmin(ndvi)) / 0.6
     
     savetif(LAI, outputPath, reference_img)
     return LAI
