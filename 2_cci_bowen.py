@@ -5,7 +5,7 @@ import supportlib_v2
 import time
 import sys
 
-
+##
 start_time = time.time()
 
 INPUT_FOLDER = r'/home/tereza/Documents/data/LANDSAT/RESULTS'
