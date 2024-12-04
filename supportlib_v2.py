@@ -9,12 +9,11 @@ import rasterio as rio
 from affine import Affine
 from datetime import datetime
 import warnings
-from osgeo import gdal, osr
+from osgeo import gdal
 import math
 import json
 
 import matplotlib.pyplot as plt
-from scipy.stats import linregress
 from scipy import stats
 import warnings
 
@@ -25,14 +24,15 @@ import warnings
 ############################################################################################################################################
 
 def getfilepath(input_folder, suffix):
-    
-    """
-    # Get a filtered list of paths to files containing a certain suffix 
+    """_summary_
 
-    input_folder = folder contaning the input files
-    suffix = file suffix to be filtered (eg. .TIF, .JSON)
+    Args:
+        input_folder (string):          path to chosen folder
+        suffix (string):                suitable suffix for filtering (e.g. TIF, JSON)
+    Returns:
+        list:                           list of filtered paths
     """
-
+   
     pathListFolder = []
     for root, dirs, files in os.walk(input_folder, topdown=False):
         for name in files:
@@ -40,36 +40,20 @@ def getfilepath(input_folder, suffix):
                 if name not in pathListFolder:
                     pathListFolder.append(os.path.join(root, name))
     return pathListFolder
-
-
-def get_band_filepath(input_folder, suffix):
-    
-    """
-    # Get a filtered list of paths to files containing a certain suffix 
-
-    input_folder = folder contaning the input files
-    suffix = file suffix to be filtered (eg. .TIF, .JSON)
-    """
-
-    pathListFolder = []
-    for root, dirs, files in os.walk(input_folder, topdown=False):
-        for name in files:
-            if name.endswith(suffix):
-                if name not in pathListFolder:
-                    pathListFolder.append(os.path.join(root, name))
-    return pathListFolder
-
 
 ######################################################################
 
 def createmeteodict(csv_file):
+    """create dictionary for meteorological data
 
-    """
-    # Create a dictionary of meteorology data
-    # eg. {'date': [avg_temp': '22.60','max_temp': '28.4','min_temp': '13.3','relHum': '70.21','wind_sp': '0.83']}
+    Args:
+        csv_file (string):          path to CSV file containing meteodata
 
-    csv_file = file in CSV format containing meterological data with date in original format (YYYYMMDD)
+    Returns:
+        dictionary:                 input CSV file converted to dictionary
     """
+  
+    
     with open(csv_file, mode = 'r') as infile:
         csv_list = [[val.strip() for val in r.split(",")] for r in infile.readlines()] #[['date', 'avg_temp', 'wind_sp', 'relHum', 'max_temp', 'min_temp'],
                                                                                        #['20220518', '14.25', '1.25', '65.52', '19.8', '8.7'],
@@ -86,25 +70,41 @@ def createmeteodict(csv_file):
 
 ######################################################################
 
-def load_json(jsonFile):
+def loadjson(jsonFile):
+    """load Landsat metadata from JSON file
+
+    Args:
+        jsonFile (string):          path to JSON file with metadata
+
+    Returns:
+        dictionary:                 converted JSON file 
+    """
+
     with open(jsonFile, 'r') as j:
         data = json.load(j)
-    return data
+    
+        return data
 
 ######################################################################
 
-def clipimage(maskPath, inputBand, outImgPath, cropping = True, filling = True, inversion = False):
+def clipimage(maskpath, inputBand, outImgPath, cropping = True, filling = True, inversion = False):
 
+    """satellite image clipping using a pre-prepared GeoPackage mask in the same coordinate system as the images
+        https://rasterio.readthedocs.io/en/latest/api/rasterio.mask.html
+    
+    Args:
+        maskPath (str):             path to polygon mask
+        inputBand (str):            path to image to be clipped
+        outImgPath (str):           path to new (cropped) image
+        cropping (bool):            whether to crop the raster to the mask extent (default True)
+        filling (bool):             whether to set pixels outside the extent to no data (default True)
+        inversion (bool):           whether to create inverse mask (default False)
+    
+    Returns:
+        none
     """
-    # Image clipping using a pre-prepared GeoPackage mask in the same coordinate system as the images
 
-    maskPath = path to polygon mask
-    inputBand = image to be clipped
-    outImgPath = path to new cropped image
-
-    """
-
-    with fiona.open(maskPath, "r") as gpkg:
+    with fiona.open(maskpath, "r") as gpkg:
         shapes = [feature["geometry"] for feature in gpkg]
 
     with rasterio.open(inputBand) as src:
@@ -117,13 +117,11 @@ def clipimage(maskPath, inputBand, outImgPath, cropping = True, filling = True, 
                     "transform": out_transform,
                     "compress": "lzw",
                     "tiled" : True})
-    
-  
-    
+
     with rasterio.open(outImgPath, "w", **out_meta) as dest:
-        pprint(f"maska: {maskPath}")
-        pprint(f"vstupni data: {inputBand}")
-        pprint(f"vystupni cesta: {outImgPath}")
+        pprint(f"mask: {maskpath}")
+        pprint(f"original image: {inputBand}")
+        pprint(f"cropped image: {outImgPath}")
         dest.write(out_image)
     
    
@@ -138,7 +136,10 @@ def savetif(img_new, outputPath, image_georef, epsg = 'EPSG:32633'):
         image_georef (string):      path to sample georeferenced image with parameters to be copied to new image
         img_new (numpy.array):      newly created image to be saved
         outputPath (str):           path including new file name to location for saving
-        epsg (str):                 EPSG code for SRS (e.g. 'EPSG:32632')
+        epsg (str):                 EPSG code for SRS (default 'EPSG:32633')
+
+    Returns:
+        none
     """    
     step1 = gdal.Open(image_georef, gdal.GA_ReadOnly) 
     GT_input = step1.GetGeoTransform()
@@ -160,7 +161,7 @@ def savetif(img_new, outputPath, image_georef, epsg = 'EPSG:32633'):
 
 
 
-def scatterplot_2d(x, y, var1, var2, pathout):
+"""def scatterplot_2d(x, y, var1, var2, pathout):
     slope, intercept, r_value, p_value, std_err = stats.linregress(x, y)
     r2 = r_value ** 2
     sigma = np.std(y - x)
@@ -211,10 +212,18 @@ def scatterplot_2d(x, y, var1, var2, pathout):
 
     #plt.savefig(pathout + '.png', dpi=150)
     #plt.show()
-    return
+    return"""
 
 
 def W_to_MJday(variable):
+    """Convert variable in W/m^2 to MJ/day
+
+    Args:
+        variable (numpy.array; float):            input variable [W/m^2]
+
+    Returns:
+        numpy.array; float :                      output variable [MJ/day]
+    """
     return (variable * 0.0864)
 ############################################################################################################################################
 #   ALBEDO                                                                                                                                 #
@@ -223,10 +232,13 @@ def W_to_MJday(variable):
                                                                                                                                     
 def dr(sunDist):
 
-    """
-    # Correction of the eccentricity of the terrestrial orbit
+    """Correction of the eccentricity of the terrestrial orbit
 
-    sunDist = distance Earth-Sun in AU extracted from image metadata (EARTH_SUN_DISTANCE)
+    Args:
+        sunDist (float):          distance Earth-Sun  extracted from image metadata (EARTH_SUN_DISTANCE) [AU]
+
+    Returns:
+        dr_num (float):           value of corrected eccentricity of terrestrial orbit  [AU] 
     """
 
     dr_num = 1 / (sunDist ** 2)
@@ -237,23 +249,30 @@ def dr(sunDist):
 
 def zenithAngle(sunElev):
 
-    """
-    # Calculation of sun zenith angle in radians
+    """ Calculation of sun zenith angle 
+    
+    Args:
+        sunElev (float):          Sun Elevation angle extracted from image metadata (SUN_ELEVATION) [rad]
 
-    sunElev = Sun Elevation angle extracted from image metadata (SUN_ELEVATION)
+    Returns:
+        zenithan (float):         Zenith angle [rad]
     """
-    return ((90 - sunElev))# * math.pi) / 180
+    zenithan = ((90 - sunElev))
+    return zenithan
 
 ############################################################################################################################################
 
 def lb_band(offset, gain, band_path, outputPath):
    
-    """
-    # Pixel Radiance
+    """calculate pixel radiance
 
-    AddRad = Additive Radiance Term from the Metadata (RADIANCE_ADD_BAND_X)
-    MultRef =  Radiance Multiplicative Term from the Metadata (RADIANCE_MULT_BAND_X)
-    band = Landsat band
+    Args:
+        offset (float):     Additive Radiance Term from the Metadata (RADIANCE_ADD_BAND_x)
+        gain (float):       Multiplicative Rescaling Factor from the metadata (RADIANCE_MULT_BAND_x)
+        band_path (str):    path to input Landsat band
+
+    Returns:
+        Lb (numpy.array):   pixel radiance for a band [W/(m^2 * srad * μm)]
     """
     band = np.array(tf.imread(band_path))
     Lb = offset + gain * band
@@ -283,42 +302,22 @@ def reflectivity_band(lb, esun_band, dr, band_path, zenithAngle, outputPath):
 
 ######################################################################
 
-"""def kb(rb, lb, dr, zenithAngle, outputPath, band_path):
-    
-    # Solar Constant [W/m2]
-
-    rb = Band reflectance
-    lb = Radiance of each pixel [W/m2]   
-    dr = correction of the eccentricity of the terrestrial orbit
-
-    
-    
-    #rb_band = np.array(tf.imread(rb))
-    #lb_band = np.array(tf.imread(lb))
-    
-    kb = (math.pi * lb) / (rb * math.cos(math.radians(zenithAngle)) * dr)
-    kb[kb < 0] = 0
-
-    savetif(kb, outputPath, band_path) 
-    return kb"""
-
-######################################################################
-
 def pb(esun_band, esun_sum):
+    
     return esun_band / esun_sum
 
 
 def albedo_toa_band(pbx,rbx):
-    
-    """
-    # pPanetary albedo (without atmospheric correction)
-    # Unitless or %
-    # Range from 0 to 1 (ot 0 % to 100 %)
+    """planetary albedo (without atmospheric correction)
 
-    toaplanet = Planetary Top Of Atmosphere Radiance  
-    pbx = weight of spectral band
-    rbx = and reflectance
+    Args:
+        pbx (float):          band weight derived from its influence on albedo
+        rbx (numpy.array):    band reflectivity
+
+    Returns:
+        numpy.array:          uncorrected planetary albedo [unitless]
     """
+  
 
     toaPlanet = (pbx * rbx)   
     return toaPlanet
@@ -327,13 +326,16 @@ def albedo_toa_band(pbx,rbx):
 ######################################################################
 
 def albedo(toaplanet, atm_trans, outputPath, band_path):
-    """
-    # Albedo 
-    # Unitless or %
-    # Range from 0 to 1 (ot 0 % to 100 %)
+    """ corrected albedo
+    
+    Args:
 
-    toaplanet = Planetary Top Of Atmosphere Radiance  
-    Toc = Atmospheric transmittance in the solar radiation domain
+        toaplanet (numpy.array):  planetary top of atmosphere radiance  
+        atm_trans /float):        Atmospheric transmittance in the solar radiation domain
+    
+    Returns:
+        numpy.array:              corrected albedo
+    
     """
     albedo = (toaplanet - 0.03) / (atm_trans ** 2)
     albedo = np.where(albedo < 0, np.nan, albedo)
@@ -345,25 +347,31 @@ def albedo(toaplanet, atm_trans, outputPath, band_path):
 ############################################################################################################################################
 #   ATMOSHEPRIC FUNCTIONS
 ############################################################################################################################################
-def e0(T):
-    """
-    # Partial Water Vapour Pressure [kPa] /  actual vapour pressure
-    # It is a measure of the tendency of a substance to evaporate or transition from its condensed phase to the vapor phase.
-    # Tetens Formula via https://www.omnicalculator.com/chemistry/vapour-pressure-of-water
+def e0(Ta):
+    """Partial Water Vapour Pressure (actual vapour pressure)
+        # It is a measure of the tendency of a substance to evaporate or transition from its condensed phase to the vapor phase.
+        # Tetens Formula via https://www.omnicalculator.com/chemistry/vapour-pressure-of-water
+    
+    Args:
+        Ta (float):     average daily air temperature [˚C]
 
-    T = Air Temperature [˚C]
+    Returns:
+        float:          value of actual vapour pressure [kPa]
     """
-    e0 = 0.6108 * math.exp(((17.27 * T) / (T + 237.3)))
+    
+    e0 = 0.6108 * math.exp(((17.27 * Ta) / (Ta + 237.3)))
     return e0
 
 ######################################################################
 
 def es(Ta):
-    """
-    # Saturated Vapour Pressure [kPa]
-    # via https://www.fao.org/3/x0490e/x0490e07.htm#atmospheric%20pressure%20(p)
-    
-    Ta = Average Air Temperature (˚C)
+    """ Saturated Vapour Pressure [kPa]
+        # via https://www.fao.org/3/x0490e/x0490e07.htm#atmospheric%20pressure%20(p)
+    Args: 
+        Ta (float):     average daily air temperature [˚C]
+
+    Returns:
+        float:          value of saturated vapour pressure [kPa]
     """
     
     es = (6.1078 * 10**(7.5 * Ta /(Ta + 237.3))) / 10
@@ -372,11 +380,14 @@ def es(Ta):
 ######################################################################
 
 def atmPress(Z):
-    """
-    # Atmospheric Pressure [kPa]
-    # via https://designbuilder.co.uk/helpv3.4/Content/Calculation_of_Air_Density.htm
+    """Atmospheric Pressure [kPa]
+       # via https://designbuilder.co.uk/helpv3.4/Content/Calculation_of_Air_Density.htm
 
-    Z = Elevation above sea level [m]
+    Args:
+        Z (float):  Elevation above sea level [m]
+
+    Returns:
+        float:      Atmospheric Pressure [kPa] 
     """
     
     P = (101325 * ((1.0 - (Z * 0.0000225577)) ** 5.2559)) / 1000
@@ -688,22 +699,19 @@ def netradiation(shortIn, shortOut, longIn, longOut, reference_band_path, output
 #   SURFACE
 ############################################################################################################################################
 
-def emis(ndvi, Pv, output_path, reference_band_path): #surface emis
+def emis(emis_vege, Pv, emis_soil, output_path, reference_band_path): #surface emis
     """
     # Surface Emmisivity
-    # via https://www.scirp.org/journal/paperinformation?paperid=112476#return61
+    # via 
 
     red = Landsat Red Band
     ndvi = Normal Differential Vegetation Index
     Pv = Fraction of Vegetation
     """
         
-    E = np.where(ndvi < 0, 0.991,  # Water
-                  np.where(ndvi > 0.5, 0.993,  # Dense vegetation
-                           np.where(ndvi <= 0.2, 0.996,  # Bare soil
-                                    (0.973 * Pv + (1 - Pv) *  0.973 + 0.005))))  # Sparse vegetation
+    E = emis_soil * Pv + emis_vege * (1 - Pv)
 
-    #savetif(E, output_path, reference_band_path)
+    savetif(E, output_path, reference_band_path)
     return E
 
 ######################################################################
@@ -1058,23 +1066,11 @@ def CCi(albedo, ETI, hillshade, outputPath, band_path):
     normalization_hillshade = hillshade / 255
     
     CCi = (0.6 * normalization_hillshade) + (0.2 * albedo) + (0.2 * ETI)   
-    #CCi[CCi < 0] = 0.5556
+    CCi[CCi < 0] = np.nanmean(CCi)
     savetif(CCi, outputPath, band_path)
     return CCi
 
 ######################################################################
-
-def Kc(red, nir, outputPath):
-    red = np.array(tf.imread(red))
-    nir = np.array(tf.imread(nir))
-
-    np.seterr(all = "ignore")
-    RVI = nir / red
-
-    Kc = 1.1 * (1- np.exp(-1.5 * RVI))
-
-    #savetif(Kc, outputPath)
-    return Kc
 
 # https://github.com/natcap/invest.users-guide/raw/main/data-sources/kc_calculator.xlsx - from invest 
 def Kc_LAI(LAI, outputPath, reference_img):
@@ -1142,7 +1138,6 @@ def savi(red, nir, outputPath, reference_img):
     savetif(SAVI, outputPath, reference_img)
     return SAVI
 
-############################################################################################################################################
 # https://www.sciencedirect.com/science/article/pii/S1470160X22000243
 def lai(ndvi, outputPath, reference_img):
     
@@ -1150,6 +1145,8 @@ def lai(ndvi, outputPath, reference_img):
     
     savetif(LAI, outputPath, reference_img)
     return LAI
+
+############################################################################################################################################
 
 ######################################################################
 

@@ -86,31 +86,44 @@ def load_json(jsonFile):
 
 ######################################################################
 
-def clipimage(maskPath, inputBand, outImgPath):
+def clipimage(maskpath, inputBand, outImgPath, cropping = True, filling = True, inversion = False):
 
+    """satellite image clipping using a pre-prepared GeoPackage mask in the same coordinate system as the images
+        https://rasterio.readthedocs.io/en/latest/api/rasterio.mask.html
+    
+    Args:
+        maskPath (str):             path to polygon mask
+        inputBand (str):            path to image to be clipped
+        outImgPath (str):           path to new (cropped) image
+        cropping (bool):            whether to crop the raster to the mask extent (default True)
+        filling (bool):             whether to set pixels outside the extent to no data (default True)
+        inversion (bool):           whether to create inverse mask (default False)
+    
+    Returns:
+        none
     """
-    # Image clipping using a pre-prepared GeoPackage mask in the same coordinate system as the images
 
-    maskPath = path to polygon mask
-    inputBand = image to be clipped
-    outImgPath = path to new cropped image
-
-    """
-    with fiona.open(maskPath, "r") as gpkg:
+    with fiona.open(maskpath, "r") as gpkg:
         shapes = [feature["geometry"] for feature in gpkg]
 
-
     with rasterio.open(inputBand) as src:
-        out_image, out_transform = rasterio.mask.mask(src, shapes,crop=False)
-        out_meta = src.meta
-    
+        out_image, out_transform = rasterio.mask.mask(src, shapes, crop = cropping, filled = filling, invert = inversion)
+        out_meta = src.meta.copy()
+
     out_meta.update({"driver": "GTiff", # output format GeoTiff
                     "height": out_image.shape[1],
                     "width": out_image.shape[2],
-                    "transform": out_transform})
+                    "transform": out_transform,
+                    "compress": "lzw",
+                    "tiled" : True})
 
     with rasterio.open(outImgPath, "w", **out_meta) as dest:
+        #pprint(f"mask: {maskpath}")
+        #pprint(f"original image: {inputBand}")
+        #pprint(f"cropped image: {outImgPath}")
         dest.write(out_image)
+    
+   
     return 
 ######################################################################
 

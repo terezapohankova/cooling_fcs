@@ -25,8 +25,8 @@ os.makedirs(OUT_CLIP_FOLDER, exist_ok = True)
 
 
 # get paths to images and jsons
-JSON_MTL_PATH = supportlib_v2.get_band_filepath(INPUT_FOLDER, 'MTL.json') #['root/snimky_L9_testovaci/LC09_L2SP_190025_20220518_20220520_02_T1/LC09_L2SP_190025_20220518_20220520_02_T1_MTL.json']
-ORIGINAL_IMG = supportlib_v2.get_band_filepath(INPUT_FOLDER, '.TIF') #['root/snimky_L9_testovaci/18052022/LC09_L2SP_190025_20220518_20220518_02_T1_SZA.TIF']
+JSON_MTL_PATH = preprocess_func.get_band_filepath(INPUT_FOLDER, 'MTL.json') #['root/snimky_L9_testovaci/LC09_L2SP_190025_20220518_20220520_02_T1/LC09_L2SP_190025_20220518_20220520_02_T1_MTL.json']
+ORIGINAL_IMG = preprocess_func.get_band_filepath(INPUT_FOLDER, '.TIF') #['root/snimky_L9_testovaci/18052022/LC09_L2SP_190025_20220518_20220518_02_T1_SZA.TIF']
 
 CLOUD_PIXELS = [22280, 24088, 24216, 23344, 24472, 55052]
 
@@ -39,7 +39,7 @@ CLIPPED_IMG_PATHS = []
 # load JSON MTL file with metadata into dictionary {sensingdate : {metadatafile}} for level 2 (level 2 MTL json includes level 1 MTL data)
 for jsonFile in JSON_MTL_PATH:
     if 'L2SP' in jsonFile:
-        loadJSON = supportlib_v2.load_json(jsonFile)
+        loadJSON = preprocess_func.load_json(jsonFile)
         #pprint(jsonFile.split('_'))
         sensDate = jsonFile.split('_')[4] # 20220518
         
@@ -54,38 +54,51 @@ for jsonFile in JSON_MTL_PATH:
 
 # create output path for clipped images by pairing sensing date from JSON metadata file and sensing date on original images
 for inputBand in ORIGINAL_IMG:
-    clip_path = os.path.join(OUT_CLIP_FOLDER, date, 'clipped_' + os.path.basename(inputBand))
-    for date in sensingDate:
-        
-        if os.path.basename(inputBand).split('_')[3] == date: # if date on original input band equals date sensing date from json mtl, then append it to the list
+    date = inputBand.split('/')[-1].split('_')[3]
+   
+    
+    #clip_path = os.path.join(OUT_CLIP_FOLDER, date, 'clipped_' + os.path.basename(inputBand))
+    #for date in sensingDate:
+        #pprint(date)
+        #if os.path.basename(inputBand).split('_')[3] == date: # if date on original input band equals date sensing date from json mtl, then append it to the list
             #pprint(os.path.join(OUTPUT_PATH, OUT_CLIP_FOLDER, date, 'clipped_' + os.path.basename(inputBand)))
-            CLIPPED_IMG_PATHS.append(clip_path)
-            # pprint(CLIPPED_IMG_PATHS)
+            #CLIPPED_IMG_PATHS.append(clip_path)
+            #pprint(CLIPPED_IMG_PATHS)
 
 for inputBand in ORIGINAL_IMG:
-    
+    #pprint(inputBand)
     # if date on original input band equals date sensing date from json mtl, then append it to the list
     
     image_basename = os.path.basename(inputBand) # 'LC09_L1TP_190025_20220518_20220518_02_T1_B6_clipped.TIF'
+    #pprint(image_basename)
     
+
     if 'L2SP' and 'QA_PIXEL' in image_basename:
         date = image_basename.split('_')[3]
-        supportlib_v2.clipimage(AREA_MASK, inputBand, clip_path, True, False)
-        #pprint(clippedImgPath)
+        clippedImgPath = os.path.join(OUT_CLIP_FOLDER, date, 'clipped_' + os.path.basename(inputBand))
+        preprocess_func.clipimage(AREA_MASK, inputBand, clippedImgPath, True, False)
+        #pprint(date)
+        
     
         
     elif 'B2' in image_basename or \
         'B3' in image_basename or 'B4' in image_basename or 'B5' in image_basename or \
-        'B6' in image_basename or 'B7' in image_basename or 'B10' in image_basename: 
+        'B6' in image_basename or 'B7' in image_basename or 'B10' in image_basename or \
+        'B11' in image_basename: 
+        
         #image_name = image_basename.replace('.TIF','') #'LC09_L2SP_189026_20220612_20220614_02_T1_SR_B1'
-                   
-        date = image_basename.split('_')[3] # '20220612'   
-        #clippedImgPath = os.path.join(OUT_CLIP_FOLDER, date, 'clipped_' + os.path.basename(inputBand)) # '/home/tereza/Documents/testy_VSC/clipped_bands/20220612/clipped_LC09_L2SP_189026_20220612_20220614_02_T1_SR_B1.TIF'                                                    
-        supportlib_v2.clipimage(AREA_MASK, inputBand, clip_path, True, False)
+        #pprint(image_basename)        
+        
+        date = image_basename.split('_')[3] # '20220612'
+        
+        
+        clippedImgPath = os.path.join(OUT_CLIP_FOLDER, date, 'clipped_' + os.path.basename(inputBand)) # '/home/tereza/Documents/testy_VSC/clipped_bands/20220612/clipped_LC09_L2SP_189026_20220612_20220614_02_T1_SR_B1.TIF'                                                    
+        pprint(clippedImgPath)
+        preprocess_func.clipimage(AREA_MASK, inputBand, clippedImgPath, True, False)
 
       
     
-### create dictionary for QA_PIXEL band that will get the frequency of each pixel value for each sensing date
+### create dictionary for QA_PIXEL band that will get the frequency of each pixel value for each sensing date"""
 
 
 
