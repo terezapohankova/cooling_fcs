@@ -143,28 +143,21 @@ for file in path_to_QA_img:
         binary_pixel_values = [bin(pixel)[2:].zfill(16) for pixel in unique_pixel_values]  # Convert to binary and pad to 16 bits
         #binary_pixel_values = [bin(pixel) for pixel in unique_pixel_values]
         #pprint(binary_pixel_values)
-        
 
-        
+        # Assuming you have the following variables defined:
+        # date_str, unique_pixel_values, binary_pixel_values 
 
-        # Create DataFrame with columns
         qa_df = pd.DataFrame({
             'sensing_date': date_str,
             'pixel_value': unique_pixel_values, 
             'pixel_binary': binary_pixel_values,
-            'cloud_pres' : preprocess_func.cloud_pres(binary_pixel_values)
-
-            #'pixel_frequency': pixel_frequency.values,  # Ensure this is passed as a NumPy array
-            #'pixel_area_m2': pixel_value_area_m2,
-            #'pixel_area_%': pixel_value_area_percent,
+            'cloud_pres': preprocess_func.get_bit_index(binary_pixel_values, -5),  # Extract single bit
+            'cloud_conf': preprocess_func.get_combined_index(binary_pixel_values, -7, -6),  # Extract and combine two bits
+            'shadow_conf': preprocess_func.get_combined_index(binary_pixel_values, -9, -8)  # Extract and combine two bits
         })
-
-        
-
-     
-
-        
         pprint(qa_df)
+
+       
             
 
         #cloud_coverage_df = preprocess_func.filter_df_cloud_pixels(qa_df, 30, CLOUD_PIXELS) #filter cloud pixels if cloud coverage is larger than value (default 30 %)
