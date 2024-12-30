@@ -151,19 +151,17 @@ for file in path_to_QA_img:
             'sensing_date': date_str,
             'pixel_value': unique_pixel_values, 
             'pixel_binary': binary_pixel_values,
-            'cloud_pres': preprocess_func.get_bit_index(binary_pixel_values, -5),  # Extract single bit
+            'pixel_frequency': pixel_frequency.values,
+            'pixel_area_m2': pixel_value_area_m2,
+            'pixel_area_%': pixel_value_area_percent,  
+            #'cloud_pres': preprocess_func.get_bit_index(binary_pixel_values, -5),  # Extract single bit
             'cloud_conf': preprocess_func.get_combined_index(binary_pixel_values, -7, -6),  # Extract and combine two bits
-            'shadow_conf': preprocess_func.get_combined_index(binary_pixel_values, -9, -8)  # Extract and combine two bits
+            'shadow_conf': preprocess_func.get_combined_index(binary_pixel_values, -9, -8),  # Extract and combine two bits    
+                  
         })
-        pprint(qa_df)
+        filtered = qa_df[((qa_df['cloud_conf'] == '11') | (qa_df['cloud_conf'] == '10')) & ((qa_df['shadow_conf'] == '11') | (qa_df['shadow_conf'] == '10'))]                
 
-       
-            
-
-        #cloud_coverage_df = preprocess_func.filter_df_cloud_pixels(qa_df, 30, CLOUD_PIXELS) #filter cloud pixels if cloud coverage is larger than value (default 30 %)
-        
-        
-        
+        print(qa_df)
 
         # if the dataframe is not empty, then export it to csv 
         #if not cloud_coverage_df.empty:
