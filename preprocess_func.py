@@ -152,6 +152,10 @@ def savetif(img_new, outputPath, image_georef, epsg = 'EPSG:32633'):
     new_dataset.close()
     return
 
+def cloud_pres(bin_pix_val):
+            ## take 4th bit (position -5) and get it in new column (0-no cloud, 1-cloud)
+    return [binary_value[-5] if len(binary_value) == 16 else None   
+            for binary_value in bin_pix_val]
 
 def calc_area_qa_pixels_m2(area_one_pixel, pixel_frequency):
     return area_one_pixel * pixel_frequency

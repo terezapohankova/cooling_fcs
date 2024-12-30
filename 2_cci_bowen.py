@@ -366,10 +366,10 @@ for date in sensing_date_list:
 
     pprint(f"Calculating Split Window Surface Temeperature for {date}")
 
-    lse_avg = 0.5 * (lse_b10 + lse_b11)
-    lse_diff = lse_b10 - lse_b11
+    lse_avg =  (lse_b10 + lse_b11) / 2
+    lse_diff =  lse_b11-lse_b10
 
-    tbright_diff = tbright - tbright_b11
+    tbright_diff =  tbright_b11 - tbright 
 
 
     lst_sw_path = os.path.join(INPUT_FOLDER, FOLDERS[0], os.path.basename(reference_img.replace('B5.TIF', 'lst_sw.TIF')))

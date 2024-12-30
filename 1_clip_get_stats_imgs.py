@@ -6,7 +6,8 @@ import rasterio as rio
 from osgeo import gdal
 import pandas as pd
 import shutil
-
+import warnings
+warnings.filterwarnings("ignore")
 
 import preprocess_func
 import supportlib_v2
@@ -28,7 +29,7 @@ os.makedirs(OUT_CLIP_FOLDER, exist_ok = True)
 JSON_MTL_PATH = preprocess_func.get_band_filepath(INPUT_FOLDER, 'MTL.json') #['root/snimky_L9_testovaci/LC09_L2SP_190025_20220518_20220520_02_T1/LC09_L2SP_190025_20220518_20220520_02_T1_MTL.json']
 ORIGINAL_IMG = preprocess_func.get_band_filepath(INPUT_FOLDER, '.TIF') #['root/snimky_L9_testovaci/18052022/LC09_L2SP_190025_20220518_20220518_02_T1_SZA.TIF']
 
-CLOUD_PIXELS = [22280, 24088, 24216, 23344, 24472, 55052]
+
 
 # empty stuff
 mtlJSONFile = {}
@@ -36,7 +37,7 @@ sensingDate = []
 #nni knstanta
 CLIPPED_IMG_PATHS = []
 
-# load JSON MTL file with metadata into dictionary {sensingdate : {metadatafile}} for level 2 (level 2 MTL json includes level 1 MTL data)
+"""# load JSON MTL file with metadata into dictionary {sensingdate : {metadatafile}} for level 2 (level 2 MTL json includes level 1 MTL data)
 for jsonFile in JSON_MTL_PATH:
     if 'L2SP' in jsonFile:
         loadJSON = preprocess_func.load_json(jsonFile)
@@ -93,8 +94,8 @@ for inputBand in ORIGINAL_IMG:
         
         
         clippedImgPath = os.path.join(OUT_CLIP_FOLDER, date, 'clipped_' + os.path.basename(inputBand)) # '/home/tereza/Documents/testy_VSC/clipped_bands/20220612/clipped_LC09_L2SP_189026_20220612_20220614_02_T1_SR_B1.TIF'                                                    
-        pprint(clippedImgPath)
-        preprocess_func.clipimage(AREA_MASK, inputBand, clippedImgPath, True, False)
+        #pprint(clippedImgPath)
+        #preprocess_func.clipimage(AREA_MASK, inputBand, clippedImgPath, True, False)"""
 
       
     
@@ -106,9 +107,12 @@ for inputBand in ORIGINAL_IMG:
 """""
 GET CSV WITH QA_PIXEL BAND STATISTICS FOR CLOUD MASKING
 """""
+#CLOUD_PIXELS = [22280, 24088, 24216, 23344, 24472, 55052]
+CLOUD_PIXELS = [2800, 2804, 2808, 2812, 6896, 6900, 6904, 6908]
 
-"""path_to_QA_img = supportlib_v2.get_qa_filepath(OUT_CLIP_FOLDER, '.TIF')
 
+path_to_QA_img = preprocess_func.get_qa_filepath(OUT_CLIP_FOLDER, '.TIF')
+#pprint(path_to_QA_img)
 
 for file in path_to_QA_img:
    
@@ -128,29 +132,51 @@ for file in path_to_QA_img:
     pixel_frequency = pd.Series(data).value_counts(dropna = True)
    
     if pixel_frequency is not None:
+        # Calculating areas
         pixel_value_area_m2 = preprocess_func.calc_area_qa_pixels_m2(reference_pixel_area, pixel_frequency)  # calculating m2 area for pixel value
-        pixel_value_area_percent =  preprocess_func.calc_area_qa_pixels_percent(width, height, pixel_frequency) # calculating % area for pixel value
-        
+        pixel_value_area_percent = preprocess_func.calc_area_qa_pixels_percent(width, height, pixel_frequency)  # calculating % area for pixel value
+
         pixel_frequency.name = date_str  # Set DataFrame name to date
-        unique_pixel_values = pixel_frequency.index.to_numpy() #get unique values from QA_BAND
-
-        # create data frame with columns
-        qa_df = pd.DataFrame({
-            'pixel_value': unique_pixel_values,  
-            'pixel_frequency': pixel_frequency,
-            'sensing_date': date_str,
-            'pixel_area_m2': pixel_value_area_m2,
-            'pixel_area_%': pixel_value_area_percent,
-              })
-
-
-        cloud_coverage_df = preprocess_func.filter_df_cloud_pixels(qa_df, 30, CLOUD_PIXELS) #filter cloud pixels if cloud coverage is larger than value (default 30 %)
+        unique_pixel_values = pixel_frequency.index.to_numpy()  # Get unique values from QA_BAND
         
+        # Convert unique_pixel_values to binary strings
+        binary_pixel_values = [bin(pixel)[2:].zfill(16) for pixel in unique_pixel_values]  # Convert to binary and pad to 16 bits
+        #binary_pixel_values = [bin(pixel) for pixel in unique_pixel_values]
+        #pprint(binary_pixel_values)
+        
+
+        
+
+        # Create DataFrame with columns
+        qa_df = pd.DataFrame({
+            'sensing_date': date_str,
+            'pixel_value': unique_pixel_values, 
+            'pixel_binary': binary_pixel_values,
+            'cloud_pres' : preprocess_func.cloud_pres(binary_pixel_values)
+
+            #'pixel_frequency': pixel_frequency.values,  # Ensure this is passed as a NumPy array
+            #'pixel_area_m2': pixel_value_area_m2,
+            #'pixel_area_%': pixel_value_area_percent,
+        })
+
+        
+
+     
+
+        
+        pprint(qa_df)
+            
+
+        #cloud_coverage_df = preprocess_func.filter_df_cloud_pixels(qa_df, 30, CLOUD_PIXELS) #filter cloud pixels if cloud coverage is larger than value (default 30 %)
+        
+        
+        
+
         # if the dataframe is not empty, then export it to csv 
-        if not cloud_coverage_df.empty:
-            preprocess_func.export_df_cloud_csv(date_str, cloud_coverage_df)
+        #if not cloud_coverage_df.empty:
+            #preprocess_func.export_df_cloud_csv(date_str, cloud_coverage_df)
                   
-        dataset.Close()"""
+       # dataset.Close()
         
 end = time.time()       
 print("The time of execution of above program is :",
