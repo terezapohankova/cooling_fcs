@@ -132,6 +132,7 @@ for jsonFile in JSON_MTL_PATH:
         if sensDate not in sensing_date_list:
             sensing_date_list.append(sensDate)
         mtlJSONFile[sensDate] = loadJSON
+        shutil.copy(jsonFile, os.path.join(OUT_CLIP_FOLDER, sensDate))
 
     
 # create output path for clipped images by pairing sensing date from JSON metadata file and sensing date on original images
