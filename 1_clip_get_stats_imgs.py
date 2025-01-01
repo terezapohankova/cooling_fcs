@@ -10,18 +10,33 @@ import shutil
 import preprocess_func
 import supportlib_v2
 import time
+import warnings
+warnings.filterwarnings('ignore')
 
 # Start time to measure execution duration
 start_time = time.time()
+pprint('I solemnly swear that I am up to no good...')
 
-# Define paths for input and output
-OUTPUT_PATH = r'/home/tereza/Documents/data/LANDSAT/RESULTS'
-INPUT_FOLDER = r'/media/tereza/e69216f4-59db-4b9c-a9ea-eec828d59ee5/home/tereza/Documents/LANDSAT_2023'
-JSON_MTL_PATH = supportlib_v2.getfilepath(INPUT_FOLDER, 'MTL.json') #['root/snimky_L9_testovaci/LC09_L2SP_190025_20220518_20220520_02_T1/LC09_L2SP_190025_20220518_20220520_02_T1_MTL.json']
-AREA_MASK = r'/home/tereza/Documents/gh_repos/cooling_fcs/aux_data/olomouc_32633.gpkg'
+# User inputs
+
+OUTPUT_PATH = input(f"Enter the path for the output directory: ").strip() 
+INPUT_FOLDER = input(f"Enter the path for the input folder: ").strip() 
+AREA_MASK = input(f"Enter the path for the area mask: ").strip() 
+
+
 JSON_MTL_PATH = preprocess_func.get_band_filepath(INPUT_FOLDER, 'MTL.json') #['root/snimky_L9_testovaci/LC09_L2SP_190025_20220518_20220520_02_T1/LC09_L2SP_190025_20220518_20220520_02_T1_MTL.json']
 ORIGINAL_IMG = preprocess_func.get_band_filepath(INPUT_FOLDER, '.TIF') #['root/snimky_L9_testovaci/18052022/LC09_L2SP_190025_20220518_20220518_02_T1_SZA.TIF']
 OUT_CLIP_FOLDER = os.path.join(OUTPUT_PATH,'clipped_bands')
+
+# Verify paths are valid
+if not os.path.exists(INPUT_FOLDER):
+    print("Error: The input folder does not exist.")
+    sys.exit(1)
+if not os.path.exists(AREA_MASK):
+    print("Error: The area mask file does not exist.")
+    sys.exit(1)
+
+
 
 # Create output folders
 os.makedirs(OUT_CLIP_FOLDER, exist_ok = True)
@@ -41,14 +56,21 @@ for jsonFile in JSON_MTL_PATH:
         # If the sensing date is new, create a corresponding folder in the output directory
         if sensDate not in sensingDate:
             sensingDate.append(sensDate)
-            #pprint(sensingDate)
-            if not os.path.exists(os.path.join(OUT_CLIP_FOLDER, sensDate)): 
+            target_path = os.path.join(OUT_CLIP_FOLDER, sensDate)
+            
+            if not os.path.exists(target_path): 
                 os.makedirs(os.path.join(OUT_CLIP_FOLDER, sensDate))
         
         # Store metadata for the sensing date and copy JSON to the output folder
-        mtlJSONFile[sensDate] = loadJSON   
-        shutil.copy(jsonFile, os.path.join(OUT_CLIP_FOLDER, sensDate))
-
+        mtlJSONFile[sensDate] = loadJSON
+        shutil.copy(jsonFile, os.path.join(target_path, os.path.basename(jsonFile)))
+        
+        if os.path.isfile(os.path.join(target_path, os.path.basename(jsonFile))):
+            continue
+        else:
+            pprint(f'Error: JSON MTL file not copied: {target_path}')
+            pprint(f'Stopping the programme.')
+            sys.exit()
 
 # Create output path for clipped images by pairing sensing date from JSON metadata file and sensing date on original images
 for inputBand in ORIGINAL_IMG:
@@ -64,7 +86,16 @@ for inputBand in ORIGINAL_IMG:
     if 'L2SP' and 'QA_PIXEL' in image_basename:
         date = image_basename.split('_')[3] #get sensing date from image name
         clippedImgPath = os.path.join(OUT_CLIP_FOLDER, date, 'clipped_' + os.path.basename(inputBand)) # create path to clippe images
+        #pprint(clippedImgPath)
         preprocess_func.clipimage(AREA_MASK, inputBand, clippedImgPath, True, False) # Clip QA_PIXEl to ROI
+        
+        #check if clipping worked
+        if os.path.isfile(clippedImgPath):
+            continue
+        else:
+            pprint(f'Clipping QA_PIXEL failed for file {os.path.basename(inputBand)}')
+            pprint(f'Stopping the programme.')
+            sys.exit()
         
     # Filter data bands, only clip the ones later used
     elif 'B2' in image_basename or \
@@ -75,6 +106,12 @@ for inputBand in ORIGINAL_IMG:
         date = image_basename.split('_')[3] # '20220612'
         clippedImgPath = os.path.join(OUT_CLIP_FOLDER, date, 'clipped_' + os.path.basename(inputBand)) # create path to clipped images                                                   
         preprocess_func.clipimage(AREA_MASK, inputBand, clippedImgPath, True, False) #clip the images according to area
+        if os.path.isfile(clippedImgPath):
+            continue
+        else:
+            pprint(f'Clipping bands failed for file {os.path.basename(image_basename)}')
+            pprint(f'Stopping the programme.')
+            sys.exit()
 
 """""
 GET CSV WITH QA_PIXEL BAND STATISTICS FOR CLOUD INFORMATION
@@ -134,17 +171,22 @@ for file in path_to_QA_img:
             ((qa_df['shadow_conf'] == '11') | (qa_df['shadow_conf'] == '10')) & 
             (qa_df['pixel_area_%'] >= 10))
         ]                           
-        
-        print(clouds_df)
-
+    
         # if there are cloudy pixels, export information to csv
+        output_csv_name = 'clouds_stats'
         if not clouds_df.empty:
-            preprocess_func.export_df_cloud_csv('clouds_stats', clouds_df)
+            csv_df = preprocess_func.export_df_cloud_csv(output_csv_name, clouds_df)
 
-    else:
-        pprint("There are no pixels to calculate.")
+        if os.path.exists(output_csv_name + '.csv'):
+            continue
+        else:
+            pprint(f'Exporting file to CSV failed')
+            pprint(f'Stopping the programme.')
+            sys.exit()
 
-        
-end = time.time()       
+
+    
+end = time.time()
+pprint('Mischief managed...')
 print("The time of execution of above program is :",
-      (end-start_time))     
+      (end-start_time))

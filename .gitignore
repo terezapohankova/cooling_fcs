@@ -4,6 +4,8 @@
 *.csv
 *.xml
 *.gpkg
+*.txt
+*.csv
 
 aux_data/**
 
