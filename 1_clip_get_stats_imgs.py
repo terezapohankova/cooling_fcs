@@ -101,18 +101,11 @@ for inputBand in ORIGINAL_IMG:
     
 ### create dictionary for QA_PIXEL band that will get the frequency of each pixel value for each sensing date"""
 
-
-
-
 """""
 GET CSV WITH QA_PIXEL BAND STATISTICS FOR CLOUD MASKING
 """""
-#CLOUD_PIXELS = [22280, 24088, 24216, 23344, 24472, 55052]
-CLOUD_PIXELS = [2800, 2804, 2808, 2812, 6896, 6900, 6904, 6908]
-
 
 path_to_QA_img = preprocess_func.get_qa_filepath(OUT_CLIP_FOLDER, '.TIF')
-#pprint(path_to_QA_img)
 
 for file in path_to_QA_img:
    
@@ -141,9 +134,7 @@ for file in path_to_QA_img:
         
         # Convert unique_pixel_values to binary strings
         binary_pixel_values = [bin(pixel)[2:].zfill(16) for pixel in unique_pixel_values]  # Convert to binary and pad to 16 bits
-        #binary_pixel_values = [bin(pixel) for pixel in unique_pixel_values]
-        #pprint(binary_pixel_values)
-
+        
         # Assuming you have the following variables defined:
         # date_str, unique_pixel_values, binary_pixel_values 
 
@@ -159,15 +150,19 @@ for file in path_to_QA_img:
             'shadow_conf': preprocess_func.get_combined_index(binary_pixel_values, -9, -8),  # Extract and combine two bits    
                   
         })
-        filtered = qa_df[((qa_df['cloud_conf'] == '11') | (qa_df['cloud_conf'] == '10')) & ((qa_df['shadow_conf'] == '11') | (qa_df['shadow_conf'] == '10'))]                
 
-        print(qa_df)
+        clouds_df = qa_df[
+            (((qa_df['cloud_conf'] == '11') | (qa_df['cloud_conf'] == '10')) & 
+            ((qa_df['shadow_conf'] == '11') | (qa_df['shadow_conf'] == '10')) & 
+            (qa_df['pixel_area_%'] >= 10))
+        ]                           
+        
+        print(clouds_df)
 
-        # if the dataframe is not empty, then export it to csv 
-        #if not cloud_coverage_df.empty:
-            #preprocess_func.export_df_cloud_csv(date_str, cloud_coverage_df)
+        if not clouds_df.empty:
+            preprocess_func.export_df_cloud_csv('clouds_stats', clouds_df)
+
                   
-       # dataset.Close()
         
 end = time.time()       
 print("The time of execution of above program is :",
