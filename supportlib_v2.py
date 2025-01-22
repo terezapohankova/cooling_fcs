@@ -509,17 +509,8 @@ def delta_pt(e_ast, air_temp_k, Tr):
 def ET0(e0, SatVapCurve, WindSp, es, G, psych, Rn, Ta, outputPath, band_path):
     # https://edis.ifas.ufl.edu/publication/AE459
     #VPD = es-e0
-    #ET0_daily = ((0.408 * SatVapCurve * (Rn - G) + psych * (900 / (Ta + 273.15)) 
-                  #* WindSp * VPD) / (SatVapCurve + psych * (1 + 0.34 * WindSp))) 
-    
-    DT = SatVapCurve / (SatVapCurve + psych * 1 + 0.34 * WindSp)
-    PT = psych / (SatVapCurve + psych * (1 + 0.34*WindSp))
-    TT = (900 / Ta + 273) * WindSp
-    ET_wind = PT * TT * (es - e0)
+    ET0_daily = 0.408 * SatVapCurve * (Rn - G) + (900 * psych * WindSp * (es - e0)) /  (Ta+273.15) / (SatVapCurve + psych * (1 + 0.34 * WindSp))
 
-    Rng = Rn * 0.408
-    ET_rad = DT * Rng
-    ET0_daily = (ET_wind + ET_rad) 
     savetif(ET0_daily, outputPath, band_path)
     #savetif(ET_rad, outputPath, band_path)
     return ET0_daily
