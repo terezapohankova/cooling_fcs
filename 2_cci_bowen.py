@@ -5,7 +5,7 @@ import supportlib_v2
 import time
 import sys
 
-
+##
 start_time = time.time()
 
 INPUT_FOLDER = r'/home/tereza/Documents/data/LANDSAT/RESULTS'
@@ -132,6 +132,7 @@ for jsonFile in JSON_MTL_PATH:
         if sensDate not in sensing_date_list:
             sensing_date_list.append(sensDate)
         mtlJSONFile[sensDate] = loadJSON
+        shutil.copy(jsonFile, os.path.join(OUT_CLIP_FOLDER, sensDate))
 
     
 # create output path for clipped images by pairing sensing date from JSON metadata file and sensing date on original images
@@ -366,10 +367,10 @@ for date in sensing_date_list:
 
     pprint(f"Calculating Split Window Surface Temeperature for {date}")
 
-    lse_avg = 0.5 * (lse_b10 + lse_b11)
-    lse_diff = lse_b10 - lse_b11
+    lse_avg =  (lse_b10 + lse_b11) / 2
+    lse_diff =  lse_b11-lse_b10
 
-    tbright_diff = tbright - tbright_b11
+    tbright_diff =  tbright_b11 - tbright 
 
 
     lst_sw_path = os.path.join(INPUT_FOLDER, FOLDERS[0], os.path.basename(reference_img.replace('B5.TIF', 'lst_sw.TIF')))
