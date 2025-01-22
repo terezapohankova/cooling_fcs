@@ -132,7 +132,6 @@ for jsonFile in JSON_MTL_PATH:
         if sensDate not in sensing_date_list:
             sensing_date_list.append(sensDate)
         mtlJSONFile[sensDate] = loadJSON
-        shutil.copy(jsonFile, os.path.join(OUT_CLIP_FOLDER, sensDate))
 
     
 # create output path for clipped images by pairing sensing date from JSON metadata file and sensing date on original images
@@ -141,7 +140,7 @@ for inputBand in ORIGINAL_IMG:
     for date in sensing_date_list:
         
         if os.path.basename(inputBand).split('_')[4] == date: # if date on original input band equals date sensing date from json mtl, then append it to the list
-            #pprint(os.path.join(OUTPUT_PATH, OUT_CLIP_FOLDER, date, 'clipped_' + os.path.basename(inputBand)))
+            
             clipped_img_path.append(os.path.join(INPUT_FOLDER, date, os.path.basename(inputBand)))
         #pprint(os.path.basename(inputBand).split('_')[4])
         
@@ -367,10 +366,10 @@ for date in sensing_date_list:
 
     pprint(f"Calculating Split Window Surface Temeperature for {date}")
 
-    lse_avg =  (lse_b10 + lse_b11) / 2
-    lse_diff =  lse_b11-lse_b10
+    lse_avg = 0.5 * (lse_b10 + lse_b11)
+    lse_diff = lse_b10 - lse_b11
 
-    tbright_diff =  tbright_b11 - tbright 
+    tbright_diff = tbright - tbright_b11
 
 
     lst_sw_path = os.path.join(INPUT_FOLDER, FOLDERS[0], os.path.basename(reference_img.replace('B5.TIF', 'lst_sw.TIF')))
@@ -505,9 +504,9 @@ for date in sensing_date_list:
     eta_ssebop_path = os.path.join(INPUT_FOLDER,FOLDERS[7], os.path.basename(reference_img.replace('B5.TIF', 'eta_ssebop.TIF')))
 
     
-    
-    etf_ssebop = supportlib_v2.etf_ssebop(lst_sw, net_radiation,
-                                          rho, CP, etf_ssebop_path, reference_img)
+    cold_pix, hot_pix = supportlib_v2.identify_cold_hot_pixels(lst_C, ndvi, albd)
+
+    etf_ssebop = supportlib_v2.etf_ssebop(lst_C, hot_pix, cold_pix, etf_ssebop_path, reference_img)
 
     eta_ssebop = supportlib_v2.eta_ssebop(etf_ssebop, kc, ET0_pm,
                                           eta_ssebop_path, reference_img)

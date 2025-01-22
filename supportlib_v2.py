@@ -834,209 +834,45 @@ def et_a_day_ssebi(le, rn, lambda_v, output_path, reference_img):
 #########################################################
 
 # https://hess.copernicus.org/preprints/11/723/2014/hessd-11-723-2014.pdf
-def etf_ssebop(lst, Rn, rho, cp, output_path, reference_img, rah = 110):
+def etf_ssebop(lst, th, tc, output_path, reference_img, ):
     th = np.nanmax(lst)
 
-    etf = (th - lst) / ((Rn * rah) / (rho * cp))
+    etf = (th - lst) / (th - tc)
 
     savetif(etf, output_path, reference_img)
     return etf
 
 # https://hess.copernicus.org/preprints/11/723/2014/hessd-11-723-2014.pdf
 def eta_ssebop(etf, k, et0,outputpath, reference_img):
-    eta_ssebop = (etf * (k * et0)) 
+    eta_ssebop = (etf *  et0)
 
     savetif(eta_ssebop, outputpath, reference_img)
     return eta_ssebop
 
 
-#########################################################
-################### SEBAL functions ###################
-#########################################################
-
-def u_fric_vel_corr(u_bl_heigh, blend_height, momentum_z0m, psi_m_200, k = 0.41):
-    u_ast = (k * u_bl_heigh) / (np.log(blend_height / momentum_z0m)) - psi_m_200
-    return u_ast
-
-def rah_corr(z1, z2, fric_vel_corr, psi_h_2, psi_h_0_1, k = 0.41):
-    r_ah = (np.log(z2 / z1) )- psi_h_2 + psi_h_0_1 / (fric_vel_corr * k)
-    return r_ah
-
-def select_cold_pixel(albedo, LAI, LST):
-    """Select the cold pixel based on albedo, LAI, and LST, or use average LST if none found."""
-    cold_mask = (albedo >= 0.22) & (albedo <= 0.24) & (LAI >= 4) & (LAI <= 6)
-    cold_candidates = np.where(cold_mask)
-
-    if len(cold_candidates[0]) > 0:
-        min_LST_index = np.argmin(LST[cold_candidates])
-        cold_pixel_idx = (cold_candidates[0][min_LST_index], cold_candidates[1][min_LST_index])
-    else:
-        warnings.warn("No cold pixel found with the specified conditions. Using the pixel closest to average LST.")
-        average_LST = np.nanmean(LST)
-        cold_pixel_idx = np.unravel_index(np.argmin(np.abs(LST - average_LST)), LST.shape)
-
-    return cold_pixel_idx
-
-def select_hot_pixel(LAI, LST):
-    """Select the hot pixel based on LAI and LST, or use average LST if none found."""
-    hot_mask = (LAI >= 0) & (LAI <= 0.4)
-    hot_candidates = np.where(hot_mask)
-
-    if len(hot_candidates[0]) > 0:
-        max_LST_index = np.argmax(LST[hot_candidates])
-        hot_pixel_idx = (hot_candidates[0][max_LST_index], hot_candidates[1][max_LST_index])
-    else:
-        warnings.warn("No hot pixel found with the specified conditions. Using the pixel closest to average LST.")
-        average_LST = np.nanmean(LST)
-        hot_pixel_idx = np.unravel_index(np.argmin(np.abs(LST - average_LST)), LST.shape)
-
-    return hot_pixel_idx
-
-def calculate_dT_hot(net_radiation, g_flux, ra, hot_pixel):
-    """Calculate dT for the hot pixel, using average ra if the hot pixel's ra value is NaN."""
+def identify_cold_hot_pixels(lst, ndvi, albedo):
+   
+    # Cold pixel: High NDVI, Low LST, Low Albedo
+    cold_mask = (ndvi > 0.5) & (lst < np.nanpercentile(lst, 30)) & (albedo < 0.2)
+    cold_pixels = np.where(cold_mask)
     
-    try:
-        # Ensure ra is a numpy array
-        ra = np.asarray(ra)
-        
-        # Attempt to access the ra value at the hot_pixel index
-        ra_hot = ra[hot_pixel]
-        
-        # Check if ra at the hot_pixel index is NaN
-        if np.isnan(ra_hot):
-            # Calculate the average of ra over all valid (non-NaN) values
-            ra_hot = np.nanmean(ra)
-            warnings.warn("Warning: ra at the hot pixel is NaN. Using average ra value.")
+    # Hot pixel: Low NDVI, High LST, High Albedo
+    hot_mask = (ndvi < 0.2) & (lst > np.nanpercentile(lst, 90)) & (albedo > 0.3)
+    hot_pixels = np.where(hot_mask)
     
-    except IndexError:
-        # If indexing fails, fall back to using the average of ra
-        ra_hot = np.nanmean(ra)
-        warnings.warn("IndexError: Using average ra value instead.")
+    # Extract cold and hot pixel values
+    cold_pixel_values = lst[cold_pixels]
+    hot_pixel_values = lst[hot_pixels]
     
-    except Exception as e:
-        # Catch any other unexpected errors
-        raise RuntimeError(f"An unexpected error occurred: {e}")
+    # Calculate representative cold and hot temperature thresholds
+    t_cold = np.nanmean(cold_pixel_values)
+    t_hot = np.nanmean(hot_pixel_values)
+
+    pprint(t_cold)
+    pprint(t_hot)
     
-    # Calculate dT_hot
-    dT_hot = (net_radiation[hot_pixel] - g_flux[hot_pixel]) * ra_hot / (1.225 * 1004)
-    
-    return dT_hot
+    return t_cold, t_hot
 
-def calculate_dT_cold():
-    """Calculate dT for the cold pixel."""
-    # Assume dT_cold is 0 for well-watered conditions
-    dT_cold = 0.0
-    return dT_cold
-
-def calculate_dt_image(dT_hot, dT_cold, lst, cold_pix, hot_pix):
-    """Calculate the dT across the entire image using the hot and cold pixel values."""
-    # Calculate coefficients a and b using the SEBAL model equations
-    a = (dT_hot - dT_cold) / (lst[hot_pix] - lst[cold_pix])
-    b = dT_hot - a * lst[hot_pix]
-    
-    # Apply the linear relationship dT = a * LST + b across the entire image
-    dT = a * lst + b
-    
-    return dT
-
-def calculate_MO(rho, cp, T, H, u_star, kappa=0.4, g=9.81,
-                 lower_bound=-1e6, upper_bound=1e6):
-    """Calculate the Monin-Obukhov length."""
-    mo = -((u_star**3 * T) / (kappa * g * H * (rho / cp)))
-
-    # Identify and replace extreme values
-    extreme_mask = (mo < lower_bound) | (mo > upper_bound) | np.isnan(mo)
-    if np.any(extreme_mask):
-        # Calculate the mean of non-extreme, valid values
-        mo_mean = np.nanmean(mo[~extreme_mask])
-        # Replace extreme values with the mean
-        mo = np.where(extreme_mask, mo_mean, mo)
-
-    return mo
-
-def calculate_x(factor, MO):
-    x = (1 - 16 * (factor / MO)) ** 0.25
-    return x
-    
-def stability_correction(x, MO, factor):
-    """Calculate stability-corrected aerodynamic resistance."""
-    
-    # Initialize the output variables
-    psi_m_200 = 0
-    psi_h_200 = 0
-    psi_h_2 = 0
-    psi_h_0_1 = 0
-    
-    if np.any(MO < 0):
-        # Unstable conditions
-        if factor == 200:
-            term1 = 2 * np.log((1 + x) / 2)
-            term2 = np.log((1 + x**2) / 2)
-            term3 = -2 * np.arctan(x)
-            term4 = 0.5 * np.pi
-            psi_m_200 = term1 + term2 + term3 + term4
-            return psi_m_200
-        if factor == 2:
-            psi_h_2 = 2 * np.log((1 + x**2) / 2)  # Ensure term2 is defined
-            return psi_h_2
-        
-    elif np.any(MO > 0):
-        # Stable conditions
-        if factor == 200 or factor == 2:
-            psi_m_200 = -5 * (200 / MO)
-            psi_h_2 = -5 * (2 / MO)
-            return psi_m_200, psi_h_2
-        elif factor == 0.1:
-            psi_h_0_1 = -5 * (0.1 / MO)
-            return psi_h_0_1
-    
-    else:
-        # Neutral conditions, return zeros
-        return psi_m_200, psi_m_200, psi_h_2, psi_h_0_1
-
-
-def h_incorr_sebal(net_radiation, g_flux, LST, albedo, 
-                          LAI, ra, rho, cp, u, z, z0, T, 
-                          outputPath, reference_img):
-    """Iterate to calculate H with Monin-Obukhov stability correction."""
-
-    cold_pixel = select_cold_pixel(albedo, LAI, LST)
-    hot_pixel = select_hot_pixel(LAI, LST)
-
-    dT_cold = calculate_dT_cold()
-    dT_hot = calculate_dT_hot(net_radiation, g_flux, ra, hot_pixel)
-
-    H_prev = None
-    H_current = np.zeros(LST.shape)
-
-    tolerance = 0.01
-    iteration_count = 0
-
-    while H_prev is None or np.max(np.abs(H_current - H_prev)) > tolerance:
-        iteration_count += 1
-        H_prev = H_current.copy()
-
-        dT = calculate_dt_image(dT_hot, dT_cold, LST, cold_pixel, hot_pixel)
-        
-        # Calculate the friction velocity
-        u_star = u_fric_vel(u, z, z0)
-
-        # Calculate Monin-Obukhov length
-        L = calculate_MO(rho, cp, T, H_current, u_star)
-
-        H_current = (rho * cp * dT)  / ra
-
-        print(f"Iteration {iteration_count}: Max change in H = {np.max(np.abs(H_current - H_prev))}")
-
-    # Save the final H when optimal
-    savetif(H_current, outputPath, reference_img)
-
-    return H_current
-
-def le_sebal(net_radiantion, g_flux, h_flux, ouputpath, reference_img):
-    le = net_radiantion - g_flux - h_flux
-    savetif(le, ouputpath, reference_img)
-    return le
 ######################################################################
 ######################################################################
 ######################################################################
