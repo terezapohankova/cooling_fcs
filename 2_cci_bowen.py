@@ -201,7 +201,8 @@ for date in sensing_date_list:
     pprint(reference_img)
 
     # from kg m-2 to g cm-2
-    water_vap_cm = ((meteorologyDict[date]['total_col_vat_wap_kg']) / 10)
+    #water_vap_cm = ((meteorologyDict[date]['total_col_vat_wap_kg']) / 10)
+    
     ta_kelvin = meteorologyDict[date]['avg_temp'] + 273.15
 
     zenithAngle = supportlib_v2.zenithAngle(imgDict[date]['B2_L2']['sunElev'])
@@ -263,6 +264,9 @@ for date in sensing_date_list:
     es = supportlib_v2.es(meteorologyDict[date]['avg_temp'])
     pprint(f' es : {es} pro {date}')
 
+    water_vap_cm = (0.0981 * (10 * e0 * meteorologyDict[date]['rel_hum']) + 0.1697)/10
+   
+    pprint(f' total water vapour : {water_vap_cm} pro {date}')
 
     slope_vap_press = supportlib_v2.slopeVapPress(meteorologyDict[date]['avg_temp'])
     pprint(f' slope_vap_press : {slope_vap_press} pro {date}')
@@ -377,7 +381,7 @@ for date in sensing_date_list:
            (c_coeffs["c3"] + c_coeffs["c4"] * water_vap_cm) * (1 - lse_avg) + (c_coeffs["c5"] + c_coeffs["c6"] * water_vap_cm) * lse_diff)
     
     lst_C = lst_sw - 273.15 #convert to ˚C
-    supportlib_v2.savetif(lst_sw, lst_sw_path, reference_img)
+    supportlib_v2.savetif(lst_C, lst_sw_path, reference_img)
 
 
     #single channel

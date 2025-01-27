@@ -853,7 +853,7 @@ def eta_ssebop(etf, k, et0,outputpath, reference_img):
 def identify_cold_hot_pixels(lst, ndvi, albedo):
    
     # Cold pixel: High NDVI, Low LST, Low Albedo
-    cold_mask = (ndvi > 0.5) & (lst < np.nanpercentile(lst, 30)) & (albedo < 0.2)
+    cold_mask = (ndvi > 0.5) & (lst < np.nanpercentile(lst, 10)) & (albedo < 0.2)
     cold_pixels = np.where(cold_mask)
     
     # Hot pixel: Low NDVI, High LST, High Albedo
@@ -867,9 +867,6 @@ def identify_cold_hot_pixels(lst, ndvi, albedo):
     # Calculate representative cold and hot temperature thresholds
     t_cold = np.nanmean(cold_pixel_values)
     t_hot = np.nanmean(hot_pixel_values)
-
-    pprint(t_cold)
-    pprint(t_hot)
     
     return t_cold, t_hot
 
