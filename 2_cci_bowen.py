@@ -4,6 +4,8 @@ import numpy as np
 import process_func
 import time
 import sys
+import const_param
+
 
 ##
 start_time = time.time()
@@ -14,95 +16,26 @@ INPUT_DATA = os.path.join(INPUT_FOLDER, 'clipped_bands')
 JSON_MTL_PATH = process_func.getfilepath(INPUT_DATA, 'MTL.json') #['root/snimky_L9_testovaci/LC09_L2SP_190025_20220518_20220520_02_T1/LC09_L2SP_190025_20220518_20220520_02_T1_MTL.json']
 
 AUX_DATA = r'aux_data'
-METEOROLOGY = os.path.join(AUX_DATA, 'weather_2022_olomouc.csv') 
+METEOROLOGY = os.path.join(AUX_DATA, 'weather_2024_olomouc.csv') 
 HILLSHADE = os.path.join(AUX_DATA, 'hillshade_olomouc_32633.tif')
-
 
 
 FOLDERS = ['lst', 'vegIndices', 'radiation', 'preprocess', 'albedo', 'fluxes', 'et', 'bowen']
 for folder in FOLDERS:
     os.makedirs(os.path.join(INPUT_FOLDER, folder), exist_ok=True)
 
-Z = 650
-MEASURING_HEIGHT = 2
-CP = 1004  
+
 
 
 
 mtlJSONFile = {}
 sensing_date_list = []
 clipped_img_path = []
-B_GAMMA = 1324 # [K]
-SOLAR_CONSTANT = 1367 #[W/m2]
-
-#thetaX_dict["a"] for LST single channel
-# https://www.mdpi.com/2072-4292/10/3/431
-"""theta1_dict = {
-    "a": 4.4729730361,
-    "b": -0.0000748260,
-    "c": 0.0466282124,
-    "d": 0.0231691781,
-    "e": -0.0000496173,
-    "f": -0.0262745276,
-    "g": -2.4523205637,
-    "h": 0.0000492124,
-    "i": -7.2121979375
-}
-
-theta2_dict = {
-  "a": -30.3702785256,
-  "b": 0.0009118768,
-  "c": -0.5731956714,
-  "d": -0.7844419527,
-  "e": 0.0014080695,
-  "f": 0.2157797227,
-  "g": 106.5509303783,
-  "h": -0.0003760208,
-  "i": 89.6156888857
-}
-
-theta3_dict = {
-  "a": -3.7618398628,
-  "b": -0.0001417749,
-  "c": 0.0911362208,
-  "d": 0.5453487543,
-  "e": -0.0009095018,
-  "f": 0.0418090158,
-  "g": -79.9583806096,
-  "h": -0.0001047275,
-  "i": -14.6595491055
-}"""
 
 
-####ESUN
-# 10.3390/rs12030498
-esun = {'B2' : 2067,
-        'B3' : 1893,
-        'B4' : 1603,
-        'B5' : 972.6,
-        'B6' : 245,
-        'B7' : 79.72}
-esun_sum = sum(esun.values())
+esun_sum = sum(const_param.esun.values())
 
 
-## Skoković, D., Sobrino, J. A., Jimenez-Munoz, J. C., Soria, G., Julien, Y., Mattar, C., & Cristóbal, J. 
-#(2014). Calibration and Validation of land surface temperature for Landsat8-TIRS sensor. Land product validation and evolution.
-emissivity_table = { #(b10, b11)
-        "vegetation": (0.987, 0.989),
-        "bare_soil": (0.971, 0.977)
-    }
-
-
-## Jimenez-Munoz, J. C., Sobrino, J. A., Skoković, D., Mattar, C., & Cristobal, J. (2014). 
-# Land surface temperature retrieval methods from Landsat-8 thermal infrared sensor data. 
-# IEEE Geoscience and remote sensing letters, 11(10), 1840-1843.
-c_coeffs = {"c0": -0.268,
-            "c1": 1.378,
-            "c2": 0.183,
-            "c3": 54.300,
-            "c4": -2.238,
-            "c5": -129.200,
-            "c6": 16.400}
 
 
 
@@ -271,7 +204,7 @@ for date in sensing_date_list:
     slope_vap_press = process_func.slopeVapPress(meteorologyDict[date]['avg_temp'])
     pprint(f' slope_vap_press : {slope_vap_press} pro {date}')
 
-    p = process_func.atmPress(Z)
+    p = process_func.atmPress(const_param.Z)
     pprint(f' atmPress : {p} + {date}')
 
     rho = process_func.densityair(meteorologyDict[date]['atm_press'], meteorologyDict[date]['avg_temp'], meteorologyDict[date]['rel_hum'])
@@ -316,11 +249,11 @@ for date in sensing_date_list:
 
     pprint(f"Calculating Surface Emissivity for {date}")
     lse_path = os.path.join(INPUT_FOLDER, FOLDERS[0], os.path.basename(reference_img.replace('B5.TIF', 'lse_b10.TIF')))
-    lse_b10 = emissivity_table["vegetation"][0] * pv + emissivity_table["bare_soil"][0] * (1 - pv)
+    lse_b10 = const_param.emissivity["vegetation"][0] * pv + const_param.emissivity["bare_soil"][0] * (1 - pv)
     process_func.savetif(lse_b10, lse_path, reference_img)
     
     lse_path_b11 = os.path.join(INPUT_FOLDER, FOLDERS[0], os.path.basename(reference_img.replace('B5.TIF', 'lse_b11.TIF')))
-    lse_b11 =  emissivity_table["vegetation"][1] * pv + emissivity_table["bare_soil"][1] * (1 - pv)
+    lse_b11 =  const_param.emissivity["vegetation"][1] * pv + const_param.emissivity["bare_soil"][1] * (1 - pv)
     process_func.savetif(lse_b11, lse_path_b11, reference_img)
 
     ########## THERMAL CORRECTIONS ######################
@@ -377,8 +310,8 @@ for date in sensing_date_list:
 
 
     lst_sw_path = os.path.join(INPUT_FOLDER, FOLDERS[0], os.path.basename(reference_img.replace('B5.TIF', 'lst_sw.TIF')))
-    lst_sw = (tbright + c_coeffs["c1"] * tbright_diff + c_coeffs["c2"] * tbright_diff**2 + c_coeffs["c0"] + 
-           (c_coeffs["c3"] + c_coeffs["c4"] * water_vap_cm) * (1 - lse_avg) + (c_coeffs["c5"] + c_coeffs["c6"] * water_vap_cm) * lse_diff)
+    lst_sw = (tbright + const_param.c_coeffs["c1"] * tbright_diff + const_param.c_coeffs["c2"] * tbright_diff**2 + const_param.c_coeffs["c0"] + 
+           (const_param.c_coeffs["c3"] + const_param.c_coeffs["c4"] * water_vap_cm) * (1 - lse_avg) + (const_param.c_coeffs["c5"] + const_param.c_coeffs["c6"] * water_vap_cm) * lse_diff)
     
     lst_C = lst_sw - 273.15 #convert to ˚C
     process_func.savetif(lst_C, lst_sw_path, reference_img)
@@ -393,7 +326,7 @@ for date in sensing_date_list:
 
     pprint(f"Calculating Albedo for {date}")
     bands = ['B2', 'B3', 'B4', 'B5', 'B6', 'B7']
-    esun_values = [esun[band] for band in bands]
+    esun_values = [const_param.esun[band] for band in bands]
     
 
     lb_values = {}
@@ -417,7 +350,7 @@ for date in sensing_date_list:
         )
         
   
-    pb = {band: process_func.pb(esun[band], esun_sum) for band in bands}
+    pb = {band: process_func.pb(const_param.esun[band], esun_sum) for band in bands}
     albedo_toa = sum(process_func.albedo_toa_band(pb[band], reflectivity[band]) for band in bands)
     process_func.savetif(albedo_toa, os.path.join(INPUT_FOLDER, FOLDERS[3], os.path.basename(reference_img.replace('B5.TIF', 'albedo_toa.TIF'))),
                           reference_img)
@@ -437,7 +370,7 @@ for date in sensing_date_list:
     rad_long_in = process_func.longin(emissivity_atmos, lst_sw, reference_img, rad_long_in_path)
 
     # Calculate Shortwave Radiation Inwards
-    rad_short_in = process_func.shortin(SOLAR_CONSTANT, zenithAngle, inverseSE, transmis_atm)
+    rad_short_in = process_func.shortin(const_param.SOLAR_CONSTANT, zenithAngle, inverseSE, transmis_atm)
     #pprint(rad_short_in)
     # Calculate Shortwave Radiation Outwards
     rad_short_out_path = os.path.join(INPUT_FOLDER,FOLDERS[2], os.path.basename(reference_img.replace('B5.TIF', 'RadShortOut.TIF')))
