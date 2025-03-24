@@ -34,6 +34,10 @@ c_coeffs = {"c0": -0.268,
             "c6": 16.400}
 
 
+
+lheat_vapor = 2.45 #Latent Heat of Vaporisation
+
+
 #thetaX_dict["a"] for LST single channel
 # https://www.mdpi.com/2072-4292/10/3/431
 """theta1_dict = {
