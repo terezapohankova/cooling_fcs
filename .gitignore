@@ -6,6 +6,7 @@
 *.gpkg
 *.txt
 *.csv
+*.json
 
 aux_data/**
 

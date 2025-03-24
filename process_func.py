@@ -347,6 +347,22 @@ def albedo(toaplanet, atm_trans, outputPath, band_path):
 ############################################################################################################################################
 #   ATMOSHEPRIC FUNCTIONS
 ############################################################################################################################################
+
+def atm_press(elevation):
+
+    P0 = 1013.25  # Sea level standard atmospheric pressure (hPa)
+    T0 = 288.15   # Standard temperature at sea level (K)
+    L = 0.0065    # Temperature lapse rate (K/m)
+    g = 9.80665   # Gravitational acceleration (m/s²)
+    M = 0.0289644 # Molar mass of Earth's air (kg/mol)
+    R = 8.3144598 # Universal gas constant (J/(mol*K))
+
+    # Barometric formula
+    pressure = P0 * (1 - (L * elevation) / T0) ** ((g * M) / (R * L))
+
+    return round(pressure, 3)  # Pressure in hPa
+
+
 def e0(Ta):
     """Partial Water Vapour Pressure (actual vapour pressure)
         # It is a measure of the tendency of a substance to evaporate or transition from its condensed phase to the vapor phase.
@@ -835,12 +851,38 @@ def et_a_day_ssebi(le, rn, lambda_v, output_path, reference_img):
 
 # https://hess.copernicus.org/preprints/11/723/2014/hessd-11-723-2014.pdf
 def etf_ssebop(lst, th, tc, output_path, reference_img, ):
-    th = np.nanmax(lst)
+    #th = np.nanmax(lst)
 
     etf = (th - lst) / (th - tc)
 
     savetif(etf, output_path, reference_img)
     return etf
+
+
+def le_ssebop(ef, rn, g, outputPath, band_path):
+
+    le = ef * (rn - g)
+
+    savetif(le, outputPath, band_path)
+    return le
+
+def h_ssebop(ef, rn, g, outputPath, band_path):
+       
+    h = (1 - ef) * (rn - g)
+
+    savetif(h, outputPath, band_path)
+
+    return h
+
+def et_a_day_sssebop(le, rn, lambda_v, output_path, reference_img):
+    #&eta =  (((rn - g) * ef)) #/ lambda_v) * 86400
+    #eta = (le * 86400) / lambda_v
+
+    eta = le * (rn * 86400) / (lambda_v * rn)
+    savetif(eta, output_path, reference_img)
+    return eta
+
+
 
 # https://hess.copernicus.org/preprints/11/723/2014/hessd-11-723-2014.pdf
 def eta_ssebop(etf, k, et0,outputpath, reference_img):
@@ -853,11 +895,27 @@ def eta_ssebop(etf, k, et0,outputpath, reference_img):
 def identify_cold_hot_pixels(lst, ndvi, albedo):
    
     # Cold pixel: High NDVI, Low LST, Low Albedo
-    cold_mask = (ndvi > 0.5) & (lst < np.nanpercentile(lst, 10)) & (albedo < 0.2)
-    cold_pixels = np.where(cold_mask)
+    try:
+        cold_mask = ndvi > 0.5 \
+                    & (lst < np.nanpercentile(lst, 10)) \
+                    & (albedo < 0.2)
+        
+        cold_pixels = np.where(cold_mask)
+
+    except:
+        
+        cold_mask = (ndvi > np.nanpercentile(ndvi, 90)) \
+                    & (lst < np.nanpercentile(lst, 10)) \
+                    & (albedo < 0.2)
+        
+        cold_pixels = np.where(cold_mask)
+    
     
     # Hot pixel: Low NDVI, High LST, High Albedo
-    hot_mask = (ndvi < 0.2) & (lst > np.nanpercentile(lst, 90)) & (albedo > 0.3)
+    hot_mask = (ndvi < 0.2) \
+                    & (lst > np.nanpercentile(lst, 90)) \
+                    & (albedo > 0.3)
+    
     hot_pixels = np.where(hot_mask)
     
     # Extract cold and hot pixel values

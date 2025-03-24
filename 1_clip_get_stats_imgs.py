@@ -19,10 +19,13 @@ pprint('I solemnly swear that I am up to no good...')
 
 # User inputs
 
-OUTPUT_PATH = input(f"Enter the path for the output directory: ").strip() 
-INPUT_FOLDER = input(f"Enter the path for the input folder: ").strip() 
-AREA_MASK = input(f"Enter the path for the area mask: ").strip() 
+#OUTPUT_PATH = input(f"Enter the path for the output directory: ").strip() 
+#INPUT_FOLDER = input(f"Enter the path for the input folder: ").strip() 
+#REA_MASK = input(f"Enter the path for the area mask: ").strip() 
 
+OUTPUT_PATH = r'/home/tereza/Documents/data/LANDSAT/RESULTS'
+INPUT_FOLDER = r'/home/tereza/Documents/snimky_landsat/landsat_2024'
+AREA_MASK = r'/home/tereza/Documents/gh_repos/cooling_fcs/aux_data/olomouc_32633.gpkg'
 
 JSON_MTL_PATH = preprocess_func.get_band_filepath(INPUT_FOLDER, 'MTL.json') #['root/snimky_L9_testovaci/LC09_L2SP_190025_20220518_20220520_02_T1/LC09_L2SP_190025_20220518_20220520_02_T1_MTL.json']
 ORIGINAL_IMG = preprocess_func.get_band_filepath(INPUT_FOLDER, '.TIF') #['root/snimky_L9_testovaci/18052022/LC09_L2SP_190025_20220518_20220518_02_T1_SZA.TIF']
@@ -51,7 +54,8 @@ CLIPPED_IMG_PATHS = []
 for jsonFile in JSON_MTL_PATH:
     if 'L2SP' in jsonFile: # Filter for Level-2 metadata files
         loadJSON = preprocess_func.load_json(jsonFile)
-        sensDate = jsonFile.split('_')[4] # 20220518
+        sensDate = jsonFile.split('_')[5] # 20220518
+        
         
         # If the sensing date is new, create a corresponding folder in the output directory
         if sensDate not in sensingDate:
@@ -66,35 +70,41 @@ for jsonFile in JSON_MTL_PATH:
         shutil.copy(jsonFile, os.path.join(target_path, os.path.basename(jsonFile)))
         
         if os.path.isfile(os.path.join(target_path, os.path.basename(jsonFile))):
+            pprint(f'Copying JSON for file {os.path.basename(jsonFile)}')
             continue
         else:
             pprint(f'Error: JSON MTL file not copied: {target_path}')
-            pprint(f'Stopping the programme.')
+            pprint(f'Stopping the programme -- JSON copy.')
             sys.exit()
 
 # Create output path for clipped images by pairing sensing date from JSON metadata file and sensing date on original images
 for inputBand in ORIGINAL_IMG:
-    date = inputBand.split('/')[-1].split('_')[3]
+    date = inputBand.split('/')[-1].split('_')[4]
+    
    
 # Work ith each individual band in each subfolder
 for inputBand in ORIGINAL_IMG:
-   
+    
     # if date on original input band equals date sensing date from json mtl, then append it to the list
     image_basename = os.path.basename(inputBand) # 'LC09_L1TP_190025_20220518_20220518_02_T1_B6_clipped.TIF'  
 
     # Filter QA_PIXEL band
     if 'L2SP' and 'QA_PIXEL' in image_basename:
         date = image_basename.split('_')[3] #get sensing date from image name
+        
         clippedImgPath = os.path.join(OUT_CLIP_FOLDER, date, 'clipped_' + os.path.basename(inputBand)) # create path to clippe images
         #pprint(clippedImgPath)
+        
         preprocess_func.clipimage(AREA_MASK, inputBand, clippedImgPath, True, False) # Clip QA_PIXEl to ROI
         
         #check if clipping worked
         if os.path.isfile(clippedImgPath):
+            pprint(f'Clipping QA_PIXEL for file {os.path.basename(inputBand)}')
             continue
+            
         else:
             pprint(f'Clipping QA_PIXEL failed for file {os.path.basename(inputBand)}')
-            pprint(f'Stopping the programme.')
+            pprint(f'Stopping the programme -- Clipping QA.')
             sys.exit()
         
     # Filter data bands, only clip the ones later used
@@ -104,13 +114,16 @@ for inputBand in ORIGINAL_IMG:
         'B11' in image_basename: 
         
         date = image_basename.split('_')[3] # '20220612'
+        
         clippedImgPath = os.path.join(OUT_CLIP_FOLDER, date, 'clipped_' + os.path.basename(inputBand)) # create path to clipped images                                                   
+        #pprint(clippedImgPath)
         preprocess_func.clipimage(AREA_MASK, inputBand, clippedImgPath, True, False) #clip the images according to area
         if os.path.isfile(clippedImgPath):
+            pprint(f'Clipping bands for file {os.path.basename(image_basename)}')
             continue
         else:
             pprint(f'Clipping bands failed for file {os.path.basename(image_basename)}')
-            pprint(f'Stopping the programme.')
+            pprint(f'Stopping the programme -- clipping Bands.')
             sys.exit()
 
 """""
@@ -118,10 +131,20 @@ GET CSV WITH QA_PIXEL BAND STATISTICS FOR CLOUD INFORMATION
 """""
 # Locate QA band
 path_to_QA_img = preprocess_func.get_qa_filepath(OUT_CLIP_FOLDER, '.TIF')
+existing_dates = set()
+
+if os.path.exists('clouds_stats.csv'):
+    existing_data = pd.read_csv('clouds_stats.csv')
+    existing_dates.update(existing_data['sensing_date'].unique())
+
 
 # For each QA_band
 for file in path_to_QA_img:   
     date_str = (file.split('_')[5])  # Extract date from filename
+
+    if date_str in existing_dates:
+        pprint(f'Date {date_str} already processed, skipping.')
+        continue
     
     dataset = gdal.Open(file)
     band = dataset.GetRasterBand(1) # open raster bands
@@ -176,12 +199,14 @@ for file in path_to_QA_img:
         output_csv_name = 'clouds_stats'
         if not clouds_df.empty:
             csv_df = preprocess_func.export_df_cloud_csv(output_csv_name, clouds_df)
+            existing_dates.add(date_str)
 
         if os.path.exists(output_csv_name + '.csv'):
+            pprint(f'Exporting CSV for file {os.path.basename(image_basename)}')
             continue
         else:
             pprint(f'Exporting file to CSV failed')
-            pprint(f'Stopping the programme.')
+            pprint(f'Stopping the programme -- Export to CSV.')
             sys.exit()
 
 
