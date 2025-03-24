@@ -8,7 +8,7 @@ import pandas as pd
 import shutil
 
 import preprocess_func
-import supportlib_v2
+import process_func
 import time
 import warnings
 warnings.filterwarnings('ignore')
@@ -19,13 +19,9 @@ pprint('I solemnly swear that I am up to no good...')
 
 # User inputs
 
-#OUTPUT_PATH = input(f"Enter the path for the output directory: ").strip() 
-#INPUT_FOLDER = input(f"Enter the path for the input folder: ").strip() 
-#REA_MASK = input(f"Enter the path for the area mask: ").strip() 
-
-OUTPUT_PATH = r'/home/tereza/Documents/data/LANDSAT/RESULTS'
-INPUT_FOLDER = r'/home/tereza/Documents/snimky_landsat/landsat_2024'
-AREA_MASK = r'/home/tereza/Documents/gh_repos/cooling_fcs/aux_data/olomouc_32633.gpkg'
+OUTPUT_PATH = input(f"Enter the path for the output directory: ").strip() 
+INPUT_FOLDER = input(f"Enter the path for the input folder: ").strip() 
+AREA_MASK = input(f"Enter the path for the area mask: ").strip() 
 
 JSON_MTL_PATH = preprocess_func.get_band_filepath(INPUT_FOLDER, 'MTL.json') #['root/snimky_L9_testovaci/LC09_L2SP_190025_20220518_20220520_02_T1/LC09_L2SP_190025_20220518_20220520_02_T1_MTL.json']
 ORIGINAL_IMG = preprocess_func.get_band_filepath(INPUT_FOLDER, '.TIF') #['root/snimky_L9_testovaci/18052022/LC09_L2SP_190025_20220518_20220518_02_T1_SZA.TIF']
