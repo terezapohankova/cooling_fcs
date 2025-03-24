@@ -6,7 +6,6 @@ import time
 import sys
 import const_param
 
-
 ##
 start_time = time.time()
 
@@ -23,7 +22,6 @@ HILLSHADE = os.path.join(AUX_DATA, 'hillshade_olomouc_32633.tif')
 FOLDERS = ['lst', 'vegIndices', 'radiation', 'preprocess', 'albedo', 'fluxes', 'et', 'bowen']
 for folder in FOLDERS:
     os.makedirs(os.path.join(INPUT_FOLDER, folder), exist_ok=True)
-
 
 
 
@@ -128,10 +126,12 @@ for inputBand in ORIGINAL_IMG:
 
 
 for date in sensing_date_list:
-    pprint('============')
+    pprint('===================================')
+    pprint(f'Sensing Date Calculated: {date}')
+    pprint('===================================')
+    
     #pprint(meteorologyDict)
     reference_img = imgDict[date]['B5_L2']['clipped_path']
-    pprint(reference_img)
 
     # from kg m-2 to g cm-2
     #water_vap_cm = ((meteorologyDict[date]['total_col_vat_wap_kg']) / 10)
@@ -186,41 +186,41 @@ for date in sensing_date_list:
     #pprint(f"Calculating Atmosphere Emissiivty for {date}")
     
     emissivity_atmos = process_func.atmemis(ta_kelvin)
-    pprint(f' emissivity_atmos : {emissivity_atmos} pro {date}')
+    pprint(f' emissivity_atmos : {emissivity_atmos}')
 
     transmis_atm = 0.75+2*(10**-5)*219  #process_func.atm_transmiss(theta_vals['theta1'])
-    pprint(f' transmis_atm : {transmis_atm} pro {date}')
+    pprint(f' transmis_atm : {transmis_atm} ')
 
     e0 = process_func.e0(meteorologyDict[date]['avg_temp'])
-    pprint(f' e0 : {e0} pro {date}')
+    pprint(f' e0 : {e0} ')
 
     es = process_func.es(meteorologyDict[date]['avg_temp'])
-    pprint(f' es : {es} pro {date}')
+    pprint(f' es : {es} ')
 
     water_vap_cm = (0.0981 * (10 * e0 * meteorologyDict[date]['rel_hum']) + 0.1697)/10
    
-    pprint(f' total water vapour : {water_vap_cm} pro {date}')
+    pprint(f' total water vapour : {water_vap_cm} ')
 
     slope_vap_press = process_func.slopeVapPress(meteorologyDict[date]['avg_temp'])
-    pprint(f' slope_vap_press : {slope_vap_press} pro {date}')
+    pprint(f' slope_vap_press : {slope_vap_press} ')
 
     p = process_func.atmPress(const_param.Z)
-    pprint(f' atmPress : {p} + {date}')
+    pprint(f' atmPress : {p} ')
 
     rho = process_func.densityair(meteorologyDict[date]['atm_press'], meteorologyDict[date]['avg_temp'], meteorologyDict[date]['rel_hum'])
-    pprint(f' airDensitz : {rho} + {date}')
+    pprint(f' airDensitz : {rho} ')
 
     psychro = process_func.psychroCons(p)
-    pprint(f' psychro : {psychro} + {date}')
+    pprint(f' psychro : {psychro} ')
 
     tw_bulb = process_func.Tw_bulb(meteorologyDict[date]['avg_temp'], 
                                       meteorologyDict[date]['rel_hum'])
-    pprint(f' T_wet bulb : {tw_bulb} + {date}')
+    pprint(f' T_wet bulb : {tw_bulb} ')
 
     
     ########## VEGETATION  ######################
     
-    pprint(f"Calculating NDVI for {date}")
+    pprint(f"Calculating NDVI")
 
         
     ndvi_path = os.path.join(INPUT_FOLDER, FOLDERS[1], os.path.basename(reference_img.replace('B5.TIF', 'ndvi.TIF')))
@@ -230,7 +230,7 @@ for date in sensing_date_list:
                             )
 
 
-    pprint(f"Calculating ed_fraction_ssebi og Vegetation Cover for {date}")
+    pprint(f"Calculating ed_fraction_ssebi og Vegetation Cover")
     pv_path = os.path.join(INPUT_FOLDER, FOLDERS[1], os.path.basename(reference_img.replace('B5.TIF', 'pv.TIF')))
     pv = process_func.pv(ndvi, pv_path, reference_img)
 
@@ -247,7 +247,7 @@ for date in sensing_date_list:
 
    
 
-    pprint(f"Calculating Surface Emissivity for {date}")
+    pprint(f"Calculating Surface Emissivity")
     lse_path = os.path.join(INPUT_FOLDER, FOLDERS[0], os.path.basename(reference_img.replace('B5.TIF', 'lse_b10.TIF')))
     lse_b10 = const_param.emissivity["vegetation"][0] * pv + const_param.emissivity["bare_soil"][0] * (1 - pv)
     process_func.savetif(lse_b10, lse_path, reference_img)
@@ -257,7 +257,7 @@ for date in sensing_date_list:
     process_func.savetif(lse_b11, lse_path_b11, reference_img)
 
     ########## THERMAL CORRECTIONS ######################
-    pprint(f"Calculating Sensor Radiance for {date}")
+    pprint(f"Calculating Sensor Radiance for")
     sens_radiance_path = os.path.join(INPUT_FOLDER, FOLDERS[3], os.path.basename(reference_img.replace('B5.TIF', 'sens_redaince')))
     sens_radiance = process_func.sensor_radiance(imgDict[date]['B10_L1']['RADIANCE_MULT'], 
                                                   imgDict[date]['B10_L1']['clipped_path'],
@@ -275,7 +275,7 @@ for date in sensing_date_list:
 
     
     
-    pprint(f"Calculating Brightness Temperature for {date}")
+    pprint(f"Calculating Brightness Temperature")
     tbright_path = os.path.join(INPUT_FOLDER, FOLDERS[3], os.path.basename(reference_img.replace('B5.TIF', 'tbright.TIF')))
     tbright = process_func.bt(imgDict[date]['B10_L1']['KELVIN_CONS_1'],
                             imgDict[date]['B10_L1']['KELVIN_CONS_2'],
@@ -301,7 +301,7 @@ for date in sensing_date_list:
      ########## LAND SURFACE TEMPERATURE ######################
 
 
-    pprint(f"Calculating Split Window Surface Temeperature for {date}")
+    pprint(f"Calculating Split Window Surface Temeperature")
 
     lse_avg = 0.5 * (lse_b10 + lse_b11)
     lse_diff = lse_b10 - lse_b11
@@ -324,7 +324,7 @@ for date in sensing_date_list:
 
      ########## ALBEDO ######################
 
-    pprint(f"Calculating Albedo for {date}")
+    pprint(f"Calculating Albedo")
     bands = ['B2', 'B3', 'B4', 'B5', 'B6', 'B7']
     esun_values = [const_param.esun[band] for band in bands]
     
@@ -404,14 +404,14 @@ for date in sensing_date_list:
     le_flux_MJ = process_func.W_to_MJday(le_flux_ssebi)
 
     eta_ssebi = process_func.et_a_day_ssebi(le_flux_MJ, net_radiation_MJ,
-                                             2.45 * (10**6), eta_ssebi_path, reference_img)
+                                             const_param.lheat_vapor * (10**6), eta_ssebi_path, reference_img)
     
     
     ################################
     ### PRIESTLEY-TAYLOR  ##
     ################################
     et_pt_path = os.path.join(INPUT_FOLDER,FOLDERS[6], os.path.basename(reference_img.replace('B5.TIF', 'et_pt.TIF')))
-    eta_pt_day = 0.68 * ((slope_vap_press / (slope_vap_press + psychro)) * (net_radiation_MJ / 2.45) - (g_flux_MJ / 2.45))
+    eta_pt_day = 0.68 * ((slope_vap_press / (slope_vap_press + psychro)) * (net_radiation_MJ / const_param.lheat_vapor) - (g_flux_MJ / const_param.lheat_vapor))
 
     
     process_func.savetif(eta_pt_day * kc, et_pt_path, reference_img)
@@ -452,7 +452,7 @@ for date in sensing_date_list:
     etf_ssebop = process_func.etf_ssebop(lst_C, hot_pix, cold_pix, etf_ssebop_path, reference_img)
     le_ssebop = process_func.le_ssebop(etf_ssebop, net_radiation, g_flux_ssebi, le_ssebop_path, reference_img)
     h_ssebop = process_func.h_ssebop(etf_ssebop, net_radiation, g_flux_ssebi, h_ssebop_path, reference_img)
-    eta_ssebop = process_func.et_a_day_sssebop(process_func.W_to_MJday(le_ssebop), net_radiation_MJ, 2.45 * (10**6), eta_ssebop_path, reference_img)
+    eta_ssebop = process_func.et_a_day_sssebop(process_func.W_to_MJday(le_ssebop), net_radiation_MJ, const_param.lheat_vapor * (10**6), eta_ssebop_path, reference_img)
     ################################
     ### CCI  ##
     ################################
