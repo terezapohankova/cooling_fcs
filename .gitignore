@@ -8,6 +8,4 @@
 *.csv
 *.json
 
-aux_data/**
-
 __pycache__/**
