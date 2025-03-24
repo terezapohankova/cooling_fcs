@@ -706,20 +706,14 @@ def netradiation(shortIn, shortOut, longIn, longOut, reference_band_path, output
 #   SURFACE
 ############################################################################################################################################
 
-def emis(emis_vege, Pv, emis_soil, output_path, reference_band_path): #surface emis
-    """
-    # Surface Emmisivity
-    # via 
+def emis(emis_vege, Pv, emis_soil, output_path, reference_img): #surface emis
+  
+    surface_emis = emis_vege * Pv + emis_soil * (1 - Pv)
+    savetif(surface_emis, output_path, reference_img)
 
-    red = Landsat Red Band
-    ndvi = Normal Differential Vegetation Index
-    Pv = Fraction of Vegetation
-    """
-        
-    E = emis_soil * Pv + emis_vege * (1 - Pv)
+    return surface_emis
 
-    savetif(E, output_path, reference_band_path)
-    return E
+
 
 ######################################################################
 

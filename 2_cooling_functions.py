@@ -6,7 +6,6 @@ import time
 import sys
 import const_param
 
-##
 start_time = time.time()
 
 INPUT_FOLDER = r'/home/tereza/Documents/data/LANDSAT/RESULTS'
@@ -24,19 +23,12 @@ for folder in FOLDERS:
     os.makedirs(os.path.join(INPUT_FOLDER, folder), exist_ok=True)
 
 
-
-
 mtlJSONFile = {}
 sensing_date_list = []
 clipped_img_path = []
 
 
 esun_sum = sum(const_param.esun.values())
-
-
-
-
-
 
 
 meteorologyDict = process_func.createmeteodict(METEOROLOGY) #{{'20220518': {'avg_temp': '14.25','max_temp': '19.8','min_temp': '8.7','relHum': '65.52','wind_sp': '1.25'}},
@@ -122,7 +114,6 @@ for inputBand in ORIGINAL_IMG:
 
     
 #pprint(imgDict)
-
 
 
 for date in sensing_date_list:
@@ -249,12 +240,10 @@ for date in sensing_date_list:
 
     pprint(f"Calculating Surface Emissivity")
     lse_path = os.path.join(INPUT_FOLDER, FOLDERS[0], os.path.basename(reference_img.replace('B5.TIF', 'lse_b10.TIF')))
-    lse_b10 = const_param.emissivity["vegetation"][0] * pv + const_param.emissivity["bare_soil"][0] * (1 - pv)
-    process_func.savetif(lse_b10, lse_path, reference_img)
+    lse_b10 = process_func.emis(const_param.emissivity["vegetation"][0], pv, const_param.emissivity["bare_soil"][0], lse_path, reference_img)
     
     lse_path_b11 = os.path.join(INPUT_FOLDER, FOLDERS[0], os.path.basename(reference_img.replace('B5.TIF', 'lse_b11.TIF')))
-    lse_b11 =  const_param.emissivity["vegetation"][1] * pv + const_param.emissivity["bare_soil"][1] * (1 - pv)
-    process_func.savetif(lse_b11, lse_path_b11, reference_img)
+    lse_b11 = process_func.emis(const_param.emissivity["vegetation"][1], pv, const_param.emissivity["bare_soil"][1], lse_path, reference_img)
 
     ########## THERMAL CORRECTIONS ######################
     pprint(f"Calculating Sensor Radiance for")
