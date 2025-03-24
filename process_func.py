@@ -737,6 +737,13 @@ def LST(BT, emis, band_path, outputPath):
     #savetif(LST, outputPath, band_path)
     return LST
 
+def LST_sw(tbright, tbright_difference, lse_average, lse_difference, water_vap, c0, c1, c2, c3, c4, c5, c6, output_path, reference_img):
+        lst_sw =  (tbright + c1 * tbright_difference + c2 * tbright_difference**2 + c0 + 
+           (c3 + c4 * water_vap) * (1 - lse_average) + (c5 + c6 * water_vap) * lse_difference)
+        lst_sw_C = lst_sw - 273.15
+        savetif(lst_sw_C, output_path, reference_img)
+        return lst_sw_C
+
 ######################################################################
 
 def bowenIndex(H, LE, outputPath, band_path):

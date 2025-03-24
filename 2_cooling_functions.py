@@ -299,12 +299,10 @@ for date in sensing_date_list:
 
 
     lst_sw_path = os.path.join(INPUT_FOLDER, FOLDERS[0], os.path.basename(reference_img.replace('B5.TIF', 'lst_sw.TIF')))
-    lst_sw = (tbright + const_param.c_coeffs["c1"] * tbright_diff + const_param.c_coeffs["c2"] * tbright_diff**2 + const_param.c_coeffs["c0"] + 
-           (const_param.c_coeffs["c3"] + const_param.c_coeffs["c4"] * water_vap_cm) * (1 - lse_avg) + (const_param.c_coeffs["c5"] + const_param.c_coeffs["c6"] * water_vap_cm) * lse_diff)
     
-    lst_C = lst_sw - 273.15 #convert to ˚C
-    process_func.savetif(lst_C, lst_sw_path, reference_img)
-
+    lst_sw = process_func.LST_sw(tbright, tbright_diff, lse_avg, lse_diff, water_vap_cm, const_param.c_coeffs["c0"], const_param.c_coeffs["c1"], const_param.c_coeffs["c2"],
+                                 const_param.c_coeffs["c3"], const_param.c_coeffs["c4"], const_param.c_coeffs["c5"], const_param.c_coeffs["c6"],
+                                 lst_sw_path, reference_img)
 
     #single channel
     #lst = gamma_cal * (1 / lse_b10 * ((theta_vals['theta1'] * sens_radiance) + theta_vals['theta2']) + theta_vals['theta3'] ) + delta_cal
