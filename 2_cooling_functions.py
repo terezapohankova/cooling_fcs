@@ -4,7 +4,7 @@ import numpy as np
 import process_func
 import time
 import sys
-import const_param
+import const_param_0
 
 start_time = time.time()
 
@@ -28,7 +28,7 @@ sensing_date_list = []
 clipped_img_path = []
 
 
-esun_sum = sum(const_param.esun.values())
+esun_sum = sum(const_param_0.esun.values())
 
 
 meteorologyDict = process_func.createmeteodict(METEOROLOGY) #{{'20220518': {'avg_temp': '14.25','max_temp': '19.8','min_temp': '8.7','relHum': '65.52','wind_sp': '1.25'}},
@@ -195,7 +195,7 @@ for date in sensing_date_list:
     slope_vap_press = process_func.slopeVapPress(meteorologyDict[date]['avg_temp'])
     pprint(f' slope_vap_press : {slope_vap_press} ')
 
-    p = process_func.atmPress(const_param.Z)
+    p = process_func.atmPress(const_param_0.Z)
     pprint(f' atmPress : {p} ')
 
     rho = process_func.densityair(meteorologyDict[date]['atm_press'], meteorologyDict[date]['avg_temp'], meteorologyDict[date]['rel_hum'])
@@ -240,10 +240,10 @@ for date in sensing_date_list:
 
     pprint(f"Calculating Surface Emissivity")
     lse_path = os.path.join(INPUT_FOLDER, FOLDERS[0], os.path.basename(reference_img.replace('B5.TIF', 'lse_b10.TIF')))
-    lse_b10 = process_func.emis(const_param.emissivity["vegetation"][0], pv, const_param.emissivity["bare_soil"][0], lse_path, reference_img)
+    lse_b10 = process_func.emis(const_param_0.emissivity["vegetation"][0], pv, const_param_0.emissivity["bare_soil"][0], lse_path, reference_img)
     
     lse_path_b11 = os.path.join(INPUT_FOLDER, FOLDERS[0], os.path.basename(reference_img.replace('B5.TIF', 'lse_b11.TIF')))
-    lse_b11 = process_func.emis(const_param.emissivity["vegetation"][1], pv, const_param.emissivity["bare_soil"][1], lse_path, reference_img)
+    lse_b11 = process_func.emis(const_param_0.emissivity["vegetation"][1], pv, const_param_0.emissivity["bare_soil"][1], lse_path, reference_img)
 
     ########## THERMAL CORRECTIONS ######################
     pprint(f"Calculating Sensor Radiance for")
@@ -300,8 +300,8 @@ for date in sensing_date_list:
 
     lst_sw_path = os.path.join(INPUT_FOLDER, FOLDERS[0], os.path.basename(reference_img.replace('B5.TIF', 'lst_sw.TIF')))
     
-    lst_sw = process_func.LST_sw(tbright, tbright_diff, lse_avg, lse_diff, water_vap_cm, const_param.c_coeffs["c0"], const_param.c_coeffs["c1"], const_param.c_coeffs["c2"],
-                                 const_param.c_coeffs["c3"], const_param.c_coeffs["c4"], const_param.c_coeffs["c5"], const_param.c_coeffs["c6"],
+    lst_sw = process_func.LST_sw(tbright, tbright_diff, lse_avg, lse_diff, water_vap_cm, const_param_0.c_coeffs["c0"], const_param_0.c_coeffs["c1"], const_param_0.c_coeffs["c2"],
+                                 const_param_0.c_coeffs["c3"], const_param_0.c_coeffs["c4"], const_param_0.c_coeffs["c5"], const_param_0.c_coeffs["c6"],
                                  lst_sw_path, reference_img)
 
     #single channel
@@ -313,7 +313,7 @@ for date in sensing_date_list:
 
     pprint(f"Calculating Albedo")
     bands = ['B2', 'B3', 'B4', 'B5', 'B6', 'B7']
-    esun_values = [const_param.esun[band] for band in bands]
+    esun_values = [const_param_0.esun[band] for band in bands]
     
 
     lb_values = {}
@@ -337,7 +337,7 @@ for date in sensing_date_list:
         )
         
   
-    pb = {band: process_func.pb(const_param.esun[band], esun_sum) for band in bands}
+    pb = {band: process_func.pb(const_param_0.esun[band], esun_sum) for band in bands}
     albedo_toa = sum(process_func.albedo_toa_band(pb[band], reflectivity[band]) for band in bands)
     process_func.savetif(albedo_toa, os.path.join(INPUT_FOLDER, FOLDERS[3], os.path.basename(reference_img.replace('B5.TIF', 'albedo_toa.TIF'))),
                           reference_img)
@@ -357,7 +357,7 @@ for date in sensing_date_list:
     rad_long_in = process_func.longin(emissivity_atmos, lst_sw, reference_img, rad_long_in_path)
 
     # Calculate Shortwave Radiation Inwards
-    rad_short_in = process_func.shortin(const_param.SOLAR_CONSTANT, zenithAngle, inverseSE, transmis_atm)
+    rad_short_in = process_func.shortin(const_param_0.SOLAR_CONSTANT, zenithAngle, inverseSE, transmis_atm)
     #pprint(rad_short_in)
     # Calculate Shortwave Radiation Outwards
     rad_short_out_path = os.path.join(INPUT_FOLDER,FOLDERS[2], os.path.basename(reference_img.replace('B5.TIF', 'RadShortOut.TIF')))
@@ -391,14 +391,14 @@ for date in sensing_date_list:
     le_flux_MJ = process_func.W_to_MJday(le_flux_ssebi)
 
     eta_ssebi = process_func.et_a_day_ssebi(le_flux_MJ, net_radiation_MJ,
-                                             const_param.lheat_vapor * (10**6), eta_ssebi_path, reference_img)
+                                             const_param_0.lheat_vapor * (10**6), eta_ssebi_path, reference_img)
     
     
     ################################
     ### PRIESTLEY-TAYLOR  ##
     ################################
     et_pt_path = os.path.join(INPUT_FOLDER,FOLDERS[6], os.path.basename(reference_img.replace('B5.TIF', 'et_pt.TIF')))
-    eta_pt_day = 0.68 * ((slope_vap_press / (slope_vap_press + psychro)) * (net_radiation_MJ / const_param.lheat_vapor) - (g_flux_MJ / const_param.lheat_vapor))
+    eta_pt_day = 0.68 * ((slope_vap_press / (slope_vap_press + psychro)) * (net_radiation_MJ / const_param_0.lheat_vapor) - (g_flux_MJ / const_param_0.lheat_vapor))
 
     
     process_func.savetif(eta_pt_day * kc, et_pt_path, reference_img)
@@ -439,7 +439,7 @@ for date in sensing_date_list:
     etf_ssebop = process_func.etf_ssebop(lst_C, hot_pix, cold_pix, etf_ssebop_path, reference_img)
     le_ssebop = process_func.le_ssebop(etf_ssebop, net_radiation, g_flux_ssebi, le_ssebop_path, reference_img)
     h_ssebop = process_func.h_ssebop(etf_ssebop, net_radiation, g_flux_ssebi, h_ssebop_path, reference_img)
-    eta_ssebop = process_func.et_a_day_sssebop(process_func.W_to_MJday(le_ssebop), net_radiation_MJ, const_param.lheat_vapor * (10**6), eta_ssebop_path, reference_img)
+    eta_ssebop = process_func.et_a_day_sssebop(process_func.W_to_MJday(le_ssebop), net_radiation_MJ, const_param_0.lheat_vapor * (10**6), eta_ssebop_path, reference_img)
     ################################
     ### CCI  ##
     ################################
