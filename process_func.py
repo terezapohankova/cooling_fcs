@@ -44,12 +44,12 @@ def getfilepath(input_folder, suffix):
 ######################################################################
 
 
-def generate_image_path(img_dict, date, input_folder, subfolder, suffix, ):
+def generate_image_path(img_dict, date, input_folder,folder, suffix, ):
     # Ensure img_prep_2 is imported here inside the function to avoid circular imports
     reference_img = img_dict[date]['B5_L2']['clipped_path']
     return os.path.join(
         input_folder,  # The root input folder
-        subfolder,  # Folder from paths0.FOLDERS
+        folder,  # Folder from paths0.FOLDERS
         os.path.basename(reference_img.replace('B5.TIF', suffix))  # Replace 'B5.TIF' with the suffix
     )
 
@@ -693,7 +693,7 @@ def ea_pm(et0, kc, outputPath, reference_img):
 
 
 
-def bt(K1, K2, L_sen, outputPath, thermal_band, reference_band):
+def bt(K1, K2, L_sen, thermal_band, outputPath, reference_band):
     """
     # Top of Atmosphere Brightness Temperature [˚C/K]
     # via Landsat 8 Data Users Handbook (https://www.usgs.gov/media/files/landsat-8-data-users-handbook)
@@ -829,7 +829,7 @@ def shortout(albedo, shortin, reference_band_path, outputPath):
 
 ######################################################################
 
-def netradiation(shortIn, shortOut, longIn, longOut, reference_band_path, outputPath, albedo, lse):
+def netradiation(shortIn, shortOut, longIn, longOut, albedo, lse, outputPath, reference_band_path):
     """
     # Net Energy Bdget [W/m2]
     # via https://www.redalyc.org/journal/2736/273652409002/html/#redalyc_273652409002_ref4
