@@ -18,7 +18,6 @@ from scipy import stats
 import warnings
 
 
-
 ############################################################################################################################################
 #   GENERAL FUNCTIONS
 ############################################################################################################################################
@@ -87,45 +86,7 @@ def loadjson(jsonFile):
 
 ######################################################################
 
-def clipimage(maskpath, inputBand, outImgPath, cropping = True, filling = True, inversion = False):
 
-    """satellite image clipping using a pre-prepared GeoPackage mask in the same coordinate system as the images
-        https://rasterio.readthedocs.io/en/latest/api/rasterio.mask.html
-    
-    Args:
-        maskPath (str):             path to polygon mask
-        inputBand (str):            path to image to be clipped
-        outImgPath (str):           path to new (cropped) image
-        cropping (bool):            whether to crop the raster to the mask extent (default True)
-        filling (bool):             whether to set pixels outside the extent to no data (default True)
-        inversion (bool):           whether to create inverse mask (default False)
-    
-    Returns:
-        none
-    """
-
-    with fiona.open(maskpath, "r") as gpkg:
-        shapes = [feature["geometry"] for feature in gpkg]
-
-    with rasterio.open(inputBand) as src:
-        out_image, out_transform = rasterio.mask.mask(src, shapes, crop = cropping, filled = filling, invert = inversion)
-        out_meta = src.meta.copy()
-
-    out_meta.update({"driver": "GTiff", # output format GeoTiff
-                    "height": out_image.shape[1],
-                    "width": out_image.shape[2],
-                    "transform": out_transform,
-                    "compress": "lzw",
-                    "tiled" : True})
-
-    with rasterio.open(outImgPath, "w", **out_meta) as dest:
-        pprint(f"mask: {maskpath}")
-        pprint(f"original image: {inputBand}")
-        pprint(f"cropped image: {outImgPath}")
-        dest.write(out_image)
-    
-   
-    return 
 
 ######################################################################
 
@@ -159,60 +120,242 @@ def savetif(img_new, outputPath, image_georef, epsg = 'EPSG:32633'):
  
     return
 
-
-
-"""def scatterplot_2d(x, y, var1, var2, pathout):
-    slope, intercept, r_value, p_value, std_err = stats.linregress(x, y)
-    r2 = r_value ** 2
-    sigma = np.std(y - x)
-    bias = np.sum(np.mean(y - x))
-    rmse = np.sqrt(bias ** 2 + sigma ** 2)
-    num = len(x)
-    mae = np.sum(np.abs(y - x)) / num
+def get_band_filepath(input_folder, suffix):
     
-    print('r2: ' + str(r2))
-    print('sigma: ' + str(sigma))
-    print('bias: ' + str(bias))
-    print('rmse: ' + str(rmse))
-    print('mae: ' + str(mae))
+    """
+    Retrieve a list of file paths containing a specified suffix (e.g., .TIF, .JSON).
+    
+    Args:
+        input_folder (str):         Directory containing the input files.
+        suffix (str):               File suffix to filter by.
+    
+    Returns:
+        list:                       A list of file paths that end with the specified suffix.
+    """
 
-    fig, ax = plt.subplots(figsize=(10, 10), dpi=300)  # set figure,axes and size
-    ax.set_title(var1+' VS '+var2, size=18)  # title
-    plt.xlabel(var1, fontsize=15)  # label x
-    plt.ylabel(var2, fontsize=15)  # label y
-    ax.plot([0, 1], [0, 1], transform=ax.transAxes)
+    pathListFolder = []
+    for root, dirs, files in os.walk(input_folder, topdown=False):
+        for name in files:
+            if name.endswith(suffix):
+                if name not in pathListFolder:
+                    pathListFolder.append(os.path.join(root, name))
+    return pathListFolder
 
-    cmap = plt.cm.jet
-    plt.hist2d(x, y, bins=500, cmap=cmap, cmin=1)
-    cbar = plt.colorbar()
-    cbar.set_label('Count')
 
-    # Calculate the linear regression line
-    x_fit = np.linspace(min(x), max(x), 100)
-    y_fit = slope * x_fit + intercept
+def get_qa_filepath(input_folder, suffix):
+    
+    """
+    Retrieve a list of paths to QA_PIXEL files containing a specified suffix.
 
-    # Plot the linear regression line
-    plt.plot(x_fit, y_fit, color='red', linewidth=2,linestyle='dashed')
+    Args:
+        input_folder (str):         Directory containing the input files.
+        suffix (str):               File suffix to filter by.
+    
+    Returns:
+        list:                       A list of QA_PIXEL file paths that match the suffix.
+    """
 
-    # set limits
-    max_x_val, max_y_val = float(np.percentile(x, 99)), float(np.percentile(y, 99))
-    min_x_val, min_y_val = float(np.percentile(x, 1)), float(np.percentile(y, 1))
-    min_val = np.min([min_x_val,min_y_val])
-    max_val = np.max([max_x_val, max_y_val])
-    plt.xlim(left=min_x_val)
-    plt.xlim(right=max_x_val)
-    plt.ylim(top=max_y_val)
-    plt.ylim(bottom=min_y_val)
+    pathListFolder = []
+    for root, dirs, files in os.walk(input_folder, topdown=False):
+        for name in files:
+            if 'QA_PIXEL' in name and name.endswith(suffix):
+                if name not in pathListFolder:
+                    pathListFolder.append(os.path.join(root, name))
+    return pathListFolder
 
-    t = 'RMSE = %.2f\nR^2 = %.2f\nsigma = %.2f\nbias = %.2f\nMAE = %.2f  ' % (rmse, r2, sigma, bias, mae)
-    plt.text(x=0.55, y=0.35, s=t,
-             horizontalalignment='left',
-             verticalalignment='top',
-             transform=ax.transAxes, size=15, bbox=dict(fc='white'))
+######################################################################
 
-    #plt.savefig(pathout + '.png', dpi=150)
-    #plt.show()
-    return"""
+
+def create_qa_dict(path_to_QA):
+
+    """
+    Generate a dictionary of pixel values and their frequencies from QA_PIXEL files.
+
+    Args:
+        path_to_QA (list):      List of file paths to QA_PIXEL files.
+    
+    Returns:
+        dict:                   A dictionary mapping sensing dates to pixel value frequency data.
+    """
+
+
+    for file in path_to_QA:
+        dataset = gdal.Open(file)
+        band = dataset.GetRasterBand(1)
+        #no_data_value = band.GetNoDataValue()  # gather No Data
+        get_data = band.ReadAsArray()   # read as array
+        
+        # get pixel resolution
+        gt = dataset.GetGeoTransform()
+        pixelSizeX = gt[1]
+        pixelSizeY =-gt[5]
+
+        
+        pixel_counts = {}
+        for value in get_data.flat: # flatten the matrix 
+            try:
+                pixel_counts[value] = pixel_counts.get(value, 0) + 1 # value - current pixel, 
+                pixel_dict = {file.split('_')[5] : pixel_counts} 
+            except KeyError: 
+                continue
+        #pprint(pixel_dict)
+        dataset = None
+    return pixel_dict
+
+######################################################################
+def load_json(jsonFile):
+
+    """
+    Load a JSON file into a Python dictionary.
+
+    Args:
+        jsonFile (str):             Path to the JSON file.
+    
+    Returns:
+        dict:                       Parsed JSON data as a dictionary.
+    """
+
+    with open(jsonFile, 'r') as j:
+        data = json.load(j)
+    return data
+
+######################################################################
+
+def clipimage(maskpath, inputBand, outImgPath, cropping = True, filling = True, inversion = False):
+
+    """satellite image clipping using a pre-prepared GeoPackage mask in the same coordinate system as the images
+        https://rasterio.readthedocs.io/en/latest/api/rasterio.mask.html
+    
+    Args:
+        maskPath (str):             path to polygon mask
+        inputBand (str):            path to image to be clipped
+        outImgPath (str):           path to new (cropped) image
+        cropping (bool):            whether to crop the raster to the mask extent (default True)
+        filling (bool):             whether to set pixels outside the extent to no data (default True)
+        inversion (bool):           whether to create inverse mask (default False)
+    
+    Returns:
+        none
+    """
+
+    with fiona.open(maskpath, "r") as gpkg:
+        shapes = [feature["geometry"] for feature in gpkg]
+
+    with rasterio.open(inputBand) as src:
+        out_image, out_transform = rasterio.mask.mask(src, shapes, crop = cropping, filled = filling, invert = inversion)
+        out_meta = src.meta.copy()
+
+    out_meta.update({"driver": "GTiff", # output format GeoTiff
+                    "height": out_image.shape[1],
+                    "width": out_image.shape[2],
+                    "transform": out_transform,
+                    "compress": "lzw",
+                    "tiled" : True})
+
+    with rasterio.open(outImgPath, "w", **out_meta) as dest:
+        #pprint(f"mask: {maskpath}")
+        #pprint(f"original image: {inputBand}")
+        #pprint(f"cropped image: {outImgPath}")
+        dest.write(out_image)
+    
+   
+    return 
+
+######################################################################
+
+def get_bit_index(bin_pix_val, ix):
+
+    """
+    Extract a specific bit from binary pixel values.
+
+    Args:
+        bin_pix_val (list):         List of binary pixel values as strings.
+        ix (int):                   Index of the bit to extract (from the right).
+
+    Returns:
+        list:                       Extracted bits for each pixel value.
+    """
+     
+
+    return [binary_value[ix] if len(binary_value) >= 16 else None 
+            for binary_value in bin_pix_val]
+
+def get_combined_index(bin_pix_val, ix1, ix2):
+
+    """
+    Combine two bits from binary pixel values.
+
+    Args:
+        bin_pix_val (list):             List of binary pixel values as strings.
+        ix1 (int):                      Index of the first bit to extract.
+        ix2 (int):                      Index of the second bit to extract.
+    
+    Returns:
+        list:                           Combined bits for each pixel value.
+    """
+
+    return [binary_value[ix1] + binary_value[ix2] 
+            if len(binary_value) >= 16 else None 
+            for binary_value in bin_pix_val]
+
+def calc_area_qa_pixels_m2(area_one_pixel, pixel_frequency):
+    """
+        Calculate the total area of pixels (in square meters).
+
+        Args:
+            area_one_pixel (float):     Area of one pixel in square meters.
+            pixel_frequency (int):      Frequency of the pixel value.
+        
+        Returns:
+            float:                      Total area covered by the pixel value.
+        """
+
+    return area_one_pixel * pixel_frequency
+
+def calc_area_qa_pixels_percent(width_img, height_img, pixel_frequency):
+    """
+    Calculate the percentage of the image area covered by a pixel value.
+
+    Args:
+        width_img (int):                Width of the image in pixels.
+        height_img (int):               Height of the image in pixels.
+        pixel_frequency (int):          Frequency of the pixel value.
+    
+    Returns:
+        float:                          Percentage area covered by the pixel value.
+    """
+
+    return round((pixel_frequency * 100) / (width_img * height_img),2)
+
+def filter_df_cloud_pixels(df, cloud_coverage_percent, cloud_pixels_list):
+
+    """
+    Filter a DataFrame to include only cloud pixels above a given coverage percentage.
+
+    Args:
+        df (pandas.DataFrame):              DataFrame with pixel data.
+        cloud_coverage_percent (float):     Minimum cloud coverage percentage.
+        cloud_pixels_list (list):           List of pixel values representing clouds.
+    
+    Returns:
+        pandas.DataFrame:                   Filtered DataFrame with cloud pixels.
+    """
+
+    return df.loc[(df['pixel_value'].isin(cloud_pixels_list)) & (df['pixel_area_%'] > cloud_coverage_percent)]
+
+def export_df_cloud_csv(csv_name, df):
+    """
+    Append a DataFrame to a CSV file.
+
+    Args:
+        csv_name (str):                     Name of the output CSV file.
+        df (pandas.DataFrame):              DataFrame to be exported.
+    
+    Returns:
+        None
+    """
+    file_exists = os.path.exists(csv_name + '.csv')
+    df.to_csv(csv_name + '.csv', mode='a', header=not file_exists , index=False)
 
 
 def W_to_MJday(variable):
@@ -363,7 +506,7 @@ def atm_press(elevation):
     return round(pressure, 3)  # Pressure in hPa
 
 
-def e0(Ta):
+def e0(RH, es):
     """Partial Water Vapour Pressure (actual vapour pressure)
         # It is a measure of the tendency of a substance to evaporate or transition from its condensed phase to the vapor phase.
         # Tetens Formula via https://www.omnicalculator.com/chemistry/vapour-pressure-of-water
@@ -375,23 +518,21 @@ def e0(Ta):
         float:          value of actual vapour pressure [kPa]
     """
     
-    e0 = 0.6108 * math.exp(((17.27 * Ta) / (Ta + 237.3)))
+    e0 = (RH / 100) * es
     return e0
 
 ######################################################################
 
 def es(Ta):
-    """ Saturated Vapour Pressure [kPa]
-        # via https://www.fao.org/3/x0490e/x0490e07.htm#atmospheric%20pressure%20(p)
-    Args: 
-        Ta (float):     average daily air temperature [˚C]
-
-    Returns:
-        float:          value of saturated vapour pressure [kPa]
     """
+    Calculate the saturation vapor pressure (e_s) in Pascals using Tetens formula.
     
-    es = (6.1078 * 10**(7.5 * Ta /(Ta + 237.3))) / 10
-    return es
+    Ta: Temperature in Celsius.
+    """
+
+    e_s = 610.78 * math.exp((17.27 * Ta) / (Ta + 237.3))
+    e_s = e_s / 1000
+    return e_s
 
 ######################################################################
 
@@ -423,7 +564,7 @@ def psychroCons(P):
 
 ######################################################################
 
-def densityair(P, Ta, RH, R = 278.05):
+def densityair(P, Ta, e, R = 278.05):
     """
     Density of Air [kg/m3]
     # via https://designbuilder.co.uk/helpv3.4/Content/Calculation_of_Air_Density.htm
@@ -432,18 +573,13 @@ def densityair(P, Ta, RH, R = 278.05):
     Ta = Air Temperature in K (T [˚C] + 273.15)
     P = Standard Pressure [kPa]
     """
+    T_k = Ta + 273.15  # Convert temperature to Kelvin
     P = P * 1000
+    e = e *1000
 
-    #saturated vapour pressure in Pa
-    p1 = 6.1078 * (10**(7.5 * Ta / (Ta + 237.3)))
+    # Calculate air density using the formula
+    air_density = (P / (R * T_k)) * (1 - e / P)
     
-    # the water vapor pressure in Pa
-    pv = p1 * RH
-
-    #pressure of dry air
-    pd = P - pv
-    air_density = (pd / (R * (Ta + 273.15))) + (pv / (461.495 * (Ta + 273.15)))
-  
     return air_density
 
 ######################################################################
