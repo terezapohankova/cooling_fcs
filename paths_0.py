@@ -27,7 +27,8 @@ FOLDERS = {
     'fluxes': 'heat_fluxes',
     'et': 'evapotranspiration',
     'bowen': 'bowen_ratio',
-    'cci': 'cooling_capacity_index'
+    'cci': 'cooling_capacity_index',
+    'lse' : 'land_surface_emissivity'
 }
 
 
