@@ -23,15 +23,17 @@ for date in img_prep_2.sensing_date_list:
     pprint(f"Calculating NDVI")
 
         
-    ndvi_path = os.path.join(paths_0.INPUT_FOLDER, paths_0.FOLDERS[1], 
-                             os.path.basename(reference_img.replace('B5.TIF', 'ndvi.TIF')))
+    #ndvi_path = os.path.join(paths_0.INPUT_FOLDER, paths_0.FOLDERS[1], 
+     #                        os.path.basename(reference_img.replace('B5.TIF', 'ndvi.TIF')))
     
     ndvi = process_func.ndvi(img_prep_2.imgDict[date]['B5_L2']['clipped_path'],
                             img_prep_2.imgDict[date]['B4_L2']['clipped_path'],
-                            ndvi_path
-                            )
-
-
+                            process_func.generate_image_path(img_prep_2.imgDict, 
+                                                            date,
+                                                            paths_0.INPUT_FOLDER, 
+                                                            paths_0.FOLDERS['vegIndices'], 
+                                                            'ndvi.TIF'))
+    
     pprint(f"Calculating ed_fraction_ssebi og Vegetation Cover")
     pv_path = os.path.join(paths_0.INPUT_FOLDER, paths_0.FOLDERS[1], 
                            os.path.basename(reference_img.replace('B5.TIF', 'pv.TIF')))

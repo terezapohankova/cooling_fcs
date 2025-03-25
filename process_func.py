@@ -18,6 +18,7 @@ from scipy import stats
 import warnings
 
 
+
 ############################################################################################################################################
 #   GENERAL FUNCTIONS
 ############################################################################################################################################
@@ -41,6 +42,17 @@ def getfilepath(input_folder, suffix):
     return pathListFolder
 
 ######################################################################
+
+
+def generate_image_path(img_dict, date, input_folder, subfolder, suffix, ):
+    # Ensure img_prep_2 is imported here inside the function to avoid circular imports
+    reference_img = img_dict[date]['B5_L2']['clipped_path']
+    return os.path.join(
+        input_folder,  # The root input folder
+        subfolder,  # Folder from paths0.FOLDERS
+        os.path.basename(reference_img.replace('B5.TIF', suffix))  # Replace 'B5.TIF' with the suffix
+    )
+
 
 def createmeteodict(csv_file):
     """create dictionary for meteorological data

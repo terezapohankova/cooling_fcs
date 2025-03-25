@@ -73,7 +73,17 @@ for date in img_prep_2.sensing_date_list:
                                      h_ssebop_path, 
                                      reference_img)
     
+
+    eta_ssebop_path = os.path.join(paths_0.INPUT_FOLDER,
+                                   paths_0.FOLDERS['et'], 
+                                   os.path.basename(reference_img.replace('B5.TIF', 'eta_ssebop.TIF')))
+    
     eta_ssebop = process_func.et_a_day_sssebop(process_func.W_to_MJday(le_ssebop), 
                                                cci_5.net_radiation_MJ, 
                                                const_param_0.lheat_vapor * (10**6), 
-                                               eta_ssebop_path, reference_img)
+                                               process_func.generate_image_path(img_prep_2.img_dict, 
+                                                                                date,
+                                                                                paths_0.INPUT_FOLDER, 
+                                                                                paths_0.FOLDERS['et'], 
+                                                                                'eta_ssebop.TIF', 
+                                                                                ))

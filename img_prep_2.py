@@ -13,8 +13,9 @@ start_time = time.time()
 ## Paths are loaded from paths.py
 ## Constants and paramaters are loaded from const_param.py
 
-for folder in paths_0.FOLDERS:
-    os.makedirs(os.path.join(paths_0.INPUT_FOLDER, folder), exist_ok=True)
+for folder in paths_0.FOLDERS.values():  
+    os.makedirs(os.path.join(paths_0.INPUT_FOLDER, folder), exist_ok=True)  
+
 
 
 mtlJSONFile = {}

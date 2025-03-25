@@ -17,14 +17,18 @@ METEOROLOGY = os.path.join(AUX_DATA, 'weather_2024_olomouc.csv')
 HILLSHADE = os.path.join(AUX_DATA, 'hillshade_olomouc_32633.tif')
 
 
-FOLDERS = ['lst', 'vegIndices', 'radiation', 'preprocess', 'albedo', 'fluxes', 'et', 'bowen']
+#FOLDERS = ['lst', 'vegIndices', 'radiation', 'preprocess', 'albedo', 'fluxes', 'et', 'bowen']
+FOLDERS = {
+    'lst': 'land_surface_temperature',
+    'vegIndices': 'vegetation_indices',
+    'radiation': 'solar_radiation',
+    'preprocess': 'img_preprocessing',
+    'albedo': 'albedo',
+    'fluxes': 'heat_fluxes',
+    'et': 'evapotranspiration',
+    'bowen': 'bowen_ratio',
+    'cci': 'cooling_capacity_index'
+}
 
-def generate_image_path(date, folder_key, suffix):
-    # Ensure img_prep_2 is imported here inside the function to avoid circular imports
-    reference_img = img_prep_2.imgDict[date]['B5_L2']['clipped_path']
-    return os.path.join(
-        INPUT_FOLDER,  # The root input folder
-        FOLDERS[folder_key],  # Folder from paths0.FOLDERS
-        os.path.basename(reference_img.replace('B5.TIF', suffix))  # Replace 'B5.TIF' with the suffix
-    )
+
 
