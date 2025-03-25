@@ -27,7 +27,7 @@ for date in img_prep_2.sensing_date_list:
     lb_values = {}
 
     for band in bands:
-        band_path = os.path.join(paths_0.INPUT_FOLDER, paths_0.FOLDERS[3], os.path.basename(reference_img.replace('B5.TIF', f'L_{band}.TIF')))
+        band_path = os.path.join(paths_0.INPUT_FOLDER, paths_0.FOLDERS['albedo'], os.path.basename(reference_img.replace('B5.TIF', f'L_{band}.TIF')))
         
         lb_values[band] = process_func.lb_band(
             img_prep_2.imgDict[date][f'{band}_L1']['RADIANCE_ADD'],
@@ -45,7 +45,7 @@ for date in img_prep_2.sensing_date_list:
             meteo_3.inverseSE,
             img_prep_2.imgDict[date]['B2_L1']['clipped_path'], 
             meteo_3.zenithAngle,
-            os.path.join(paths_0.INPUT_FOLDER, paths_0.FOLDERS[3], os.path.basename(reference_img.replace('B5.TIF', f'R_{band}.TIF')))
+            os.path.join(paths_0.INPUT_FOLDER, paths_0.FOLDERS['albedo'], os.path.basename(reference_img.replace('B5.TIF', f'R_{band}.TIF')))
         )
         
   
@@ -55,40 +55,72 @@ for date in img_prep_2.sensing_date_list:
                                                   reflectivity[band]) for band in bands)
 
     process_func.savetif(albedo_toa, 
-                         os.path.join(paths_0.INPUT_FOLDER, paths_0.FOLDERS[3], 
+                         os.path.join(paths_0.INPUT_FOLDER, paths_0.FOLDERS['albedo'], 
                                       os.path.basename(reference_img.replace('B5.TIF', 'albedo_toa.TIF'))),
                           reference_img)
     
+
     albedo_path = os.path.join(paths_0.INPUT_FOLDER, 
-                               paths_0.FOLDERS[4], 
+                               paths_0.FOLDERS['albedo'],
                                os.path.basename(reference_img.replace('B5.TIF', 'albedo.TIF')))
     
     albd = process_func.albedo(albedo_toa, 
                                meteo_3.transmis_atm, 
-                               albedo_path, 
+                               process_func.generate_image_path(img_prep_2.imgDict, 
+                                                            date,
+                                                            paths_0.INPUT_FOLDER, 
+                                                            paths_0.FOLDERS['albedo'], 
+                                                            'albedo.TIF'), 
                                reference_img)
+    
+
+    savi_index = process_func.savi(img_prep_2.imgDict[date]['B4_L2']['clipped_path'], 
+                                   img_prep_2.imgDict[date]['B5_L2']['clipped_path'], 
+                                   process_func.generate_image_path(img_prep_2.imgDict, 
+                                                            date,
+                                                            paths_0.INPUT_FOLDER, 
+                                                            paths_0.FOLDERS['vegIndices'], 
+                                                            'savi.TIF'), 
+                                                            reference_img)
+    
+    lai_index = process_func.lai(lst_4.ndvi, 
+                                 process_func.generate_image_path(img_prep_2.imgDict, 
+                                                            date,
+                                                            paths_0.INPUT_FOLDER, 
+                                                            paths_0.FOLDERS['vegIndices'], 
+                                                            'lai.TIF'), 
+                                                            reference_img)
+
+    kc = process_func.Kc_LAI(lai_index, 
+                             process_func.generate_image_path(img_prep_2.imgDict, 
+                                                            date,
+                                                            paths_0.INPUT_FOLDER, 
+                                                            paths_0.FOLDERS['vegIndices'], 
+                                                            'kc.TIF'),
+                                                            reference_img)
 
     
     ########## SOLAR NET RADIATION  ######################
     
-    # Calculate Longwave Radiation Outwards
     
-    rad_long_out_path = os.path.join(paths_0.INPUT_FOLDER,paths_0.FOLDERS[2], 
-                                     os.path.basename(reference_img.replace('B5.TIF', 'RadLongOut.TIF')))
 
     rad_long_out = process_func.longout(lst_4.lse_b10, 
                                         lst_4.lst_sw, 
-                                        reference_img, rad_long_out_path)
-
-    # Calculate Longwave Radiation Inwards
-    rad_long_in_path = os.path.join(paths_0.INPUT_FOLDER,
-                                    paths_0.FOLDERS[2], 
-                                    os.path.basename(reference_img.replace('B5.TIF', 'RadLongIn.TIF')))
+                                        reference_img, 
+                                        process_func.generate_image_path(img_prep_2.imgDict, 
+                                                            date,
+                                                            paths_0.INPUT_FOLDER, 
+                                                            paths_0.FOLDERS['radiation'], 
+                                                            'rad_long_out.TIF'))
     
     rad_long_in = process_func.longin(meteo_3.emissivity_atmos, 
                                       lst_4.lst_sw, 
                                       reference_img, 
-                                      rad_long_in_path)
+                                      process_func.generate_image_path(img_prep_2.imgDict, 
+                                                            date,
+                                                            paths_0.INPUT_FOLDER, 
+                                                            paths_0.FOLDERS['radiation'], 
+                                                            'rad_long_in.TIF'))
 
     # Calculate Shortwave Radiation Inwards
     rad_short_in = process_func.shortin(const_param_0.SOLAR_CONSTANT, 
@@ -97,39 +129,42 @@ for date in img_prep_2.sensing_date_list:
                                         meteo_3.transmis_atm)
     #pprint(rad_short_in)
     # Calculate Shortwave Radiation Outwards
-    rad_short_out_path = os.path.join(paths_0.INPUT_FOLDER,paths_0.FOLDERS[2], 
-                                      os.path.basename(reference_img.replace('B5.TIF', 'RadShortOut.TIF')))
     
     rad_short_out = process_func.shortout(albd, 
                                           rad_short_in, 
                                           reference_img, 
-                                          rad_short_out_path)
+                                          process_func.generate_image_path(img_prep_2.imgDict, 
+                                                            date,
+                                                            paths_0.INPUT_FOLDER, 
+                                                            paths_0.FOLDERS['radiation'], 
+                                                            'rad_short_out.TIF'))
 
     # Calculate Net Radiation
-    net_radiation_path = os.path.join(paths_0.INPUT_FOLDER,
-                                      paths_0.FOLDERS[2], 
-                                      os.path.basename(reference_img.replace('B5.TIF', 'netRadiation.TIF')))
     
     net_radiation = process_func.netradiation(rad_short_in, 
-                                              rad_short_out, 
-                                              rad_long_in, 
-                                              rad_long_out, 
-                                              reference_img, 
-                                              net_radiation_path,
-                                              albd, 
-                                              lst_4.lse_b10)
-
-    ### Paths
-    g_path_ssebi = os.path.join(paths_0.INPUT_FOLDER, 
-                                paths_0.FOLDERS[5], 
-                                os.path.basename(reference_img.replace('B5.TIF', 'g_ssebi.TIF')))
+                                                rad_short_out, 
+                                                rad_long_in, 
+                                                rad_long_out, 
+                                                albd, 
+                                                lst_4.lse_b10,
+                                                process_func.generate_image_path(img_prep_2.imgDict, 
+                                                            date,
+                                                            paths_0.INPUT_FOLDER, 
+                                                            paths_0.FOLDERS['radiation'], 
+                                                            'RN.TIF'),
+                                                reference_img)
     
     g_flux_ssebi = process_func.soilGFlux_ssebi(lst_4.lst_sw, 
                                                 albd, 
                                                 lst_4.ndvi, 
                                                 net_radiation, 
-                                                g_path_ssebi, 
+                                                process_func.generate_image_path(img_prep_2.imgDict, 
+                                                            date,
+                                                            paths_0.INPUT_FOLDER, 
+                                                            paths_0.FOLDERS['fluxes'], 
+                                                            'G.TIF'), 
                                                 reference_img) #soil heat flux
+    
     g_flux_MJ = process_func.W_to_MJday(g_flux_ssebi)  #convert W/m2 to MJ/s/day
     
     net_radiation_MJ = process_func.W_to_MJday(net_radiation) #convert W/m2 to MJ/s/day
@@ -139,12 +174,6 @@ for date in img_prep_2.sensing_date_list:
     ### PENMAN-MONETITH  ##
     ################################
 
-    et0_PM_path = os.path.join(paths_0.INPUT_FOLDER,paths_0.FOLDERS[6], 
-                               os.path.basename(reference_img.replace('B5.TIF', 'et0_day_PM.TIF')))
-    
-    PM_ea_path = os.path.join(paths_0.INPUT_FOLDER,paths_0.FOLDERS[6], 
-                              os.path.basename(reference_img.replace('B5.TIF', 'eta_day_PM.TIF')))
-
     ET0_pm = process_func.ET0(meteo_3.e0,
                               meteo_3.slope_vap_press, 
                               img_prep_2.meteorologyDict[date]['wind_sp'], 
@@ -153,27 +182,22 @@ for date in img_prep_2.sensing_date_list:
                               meteo_3.psychro, 
                               net_radiation_MJ, 
                               img_prep_2.meteorologyDict[date]['avg_temp'], 
-                              et0_PM_path, 
+                              process_func.generate_image_path(img_prep_2.imgDict, 
+                                                            date,
+                                                            paths_0.INPUT_FOLDER, 
+                                                            paths_0.FOLDERS['et'], 
+                                                            'ET0_PM.TIF'), 
                               reference_img)
     
-
-    lai_path = os.path.join(paths_0.INPUT_FOLDER,
-                            paths_0.FOLDERS[1], 
-                            os.path.basename(reference_img.replace('B5.TIF', 'lai.TIF')))
     
-    lai_index = process_func.lai(lst_4.ndvi, 
-                                 lai_path, 
-                                 reference_img)
-
-    kc_path = os.path.join(paths_0.INPUT_FOLDER,
-                           paths_0.FOLDERS[1], 
-                           os.path.basename(reference_img.replace('B5.TIF', 'kc.TIF')))
-    
-    kc = process_func.Kc_LAI(lai_index, kc_path, reference_img)
 
     PM_ea_day = process_func.ea_pm(ET0_pm, 
                                    kc, 
-                                   PM_ea_path, 
+                                   process_func.generate_image_path(img_prep_2.imgDict, 
+                                                            date,
+                                                            paths_0.INPUT_FOLDER, 
+                                                            paths_0.FOLDERS['et'], 
+                                                            'ETA_PM.TIF'), 
                                    reference_img)
 
 
@@ -181,18 +205,21 @@ for date in img_prep_2.sensing_date_list:
     ### CCI  ##
     ################################
 
-    eti_path = os.path.join(paths_0.INPUT_FOLDER,
-                            paths_0.FOLDERS[6], 
-                            os.path.basename(reference_img.replace('B5.TIF', 'eti.TIF')))
-    
-    eti = process_func.ETI(kc, ET0_pm, eti_path, reference_img)
-
-    cci_path = os.path.join(paths_0.INPUT_FOLDER, 
-                            paths_0.FOLDERS[6], 
-                            os.path.basename(reference_img.replace('B5.TIF', 'cci.TIF')))
+    eti = process_func.ETI(kc, 
+                           ET0_pm, 
+                           process_func.generate_image_path(img_prep_2.imgDict, 
+                                                            date,
+                                                            paths_0.INPUT_FOLDER, 
+                                                            paths_0.FOLDERS['et'], 
+                                                            'ETI.TIF'), 
+                           reference_img)
     
     cci = process_func.CCi(albd, 
                            eti, 
                            paths_0.HILLSHADE, 
-                           cci_path, 
+                           process_func.generate_image_path(img_prep_2.imgDict, 
+                                                            date,
+                                                            paths_0.INPUT_FOLDER, 
+                                                            paths_0.FOLDERS['cci'], 
+                                                            'CCI.TIF'), 
                            reference_img)
