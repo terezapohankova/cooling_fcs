@@ -1,11 +1,12 @@
 
-*.TIF
-*.tif
-*.csv
+
+
+
 *.xml
-*.gpkg
+
 *.txt
-*.csv
+
 *.json
 
 __pycache__/**
+lst_analysis.py
