@@ -1,5 +1,9 @@
 import os
 import process_func
+import img_prep_2
+#from lst_4 import reference_img
+
+
 
 
 INPUT_FOLDER = r'/home/tereza/Documents/data/LANDSAT/RESULTS'
@@ -14,3 +18,13 @@ HILLSHADE = os.path.join(AUX_DATA, 'hillshade_olomouc_32633.tif')
 
 
 FOLDERS = ['lst', 'vegIndices', 'radiation', 'preprocess', 'albedo', 'fluxes', 'et', 'bowen']
+
+def generate_image_path(date, folder_key, suffix):
+    # Ensure img_prep_2 is imported here inside the function to avoid circular imports
+    reference_img = img_prep_2.imgDict[date]['B5_L2']['clipped_path']
+    return os.path.join(
+        INPUT_FOLDER,  # The root input folder
+        FOLDERS[folder_key],  # Folder from paths0.FOLDERS
+        os.path.basename(reference_img.replace('B5.TIF', suffix))  # Replace 'B5.TIF' with the suffix
+    )
+
