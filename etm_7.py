@@ -80,4 +80,5 @@ for date in img_prep_2.sensing_date_list:
                                                                                 paths_0.INPUT_FOLDER, 
                                                                                 paths_0.FOLDERS['et'], 
                                                                                 'eta_ssebop.TIF', 
+                                                                                reference_img
                                                                                 ))
