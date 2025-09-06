@@ -3,7 +3,7 @@
 
 ---
 
-##  Repsitory content
+##  Repository content
 
 - `paths_0.py` — input and output paths
 - `const_param_0.py` — constant and parameter definition
